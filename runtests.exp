@@ -770,7 +770,9 @@ proc test_pouch_build_invalid_args {argv} {
 # - pouch build image command line test, valid arguments
 # @argv - file name for logging
 proc test_pouch_build_valid_args {argv} {
-    set timeout 3
+    set timeout -1
+
+    send "echo IMPORT abc >> Pouchfile\n"
 
     send "pouch build\n"
     log_file -noappend [lindex $argv 0]
@@ -786,6 +788,7 @@ proc test_pouch_build_valid_args {argv} {
     }
     assert_on_exit_status
 
+    send "echo IMPORT abc >> MyFile\n"
     send "pouch build --file MyFile\n"
     log_file -noappend [lindex $argv 0]
     expect {
@@ -793,6 +796,7 @@ proc test_pouch_build_valid_args {argv} {
     }
     assert_on_exit_status
 
+    send "echo IMPORT abc >> MyPouchFile\n"
     send "pouch build --file MyPouchFile --tag myimagetag\n"
     log_file -noappend [lindex $argv 0]
     expect {
@@ -800,6 +804,7 @@ proc test_pouch_build_valid_args {argv} {
     }
     assert_on_exit_status
 
+    send "echo IMPORT abc >> My22PouchFile\n"
     send "pouch build --tag my3imagetag --file My22PouchFile\n"
     log_file -noappend [lindex $argv 0]
     expect {
@@ -810,12 +815,17 @@ proc test_pouch_build_valid_args {argv} {
 
 proc test_pouch_build_file_parsing {argv} {
     send "rm Pouchfile"
-    # Open pouchfile-test/test1, read line by line and echo (append) the current line to Pouchfile.
-    set fp [open pouchfile-test/test1 r]
+    # Read contents of Valid1.Pouchfile into Pouchfile on xv6
+    set fp [open pouchfile-tests/Valid1.Pouchfile r]
     while {[gets $fp line] != -1} {
         send "echo \"$line\" >> Pouchfile\n"
+        sleep 
     }
-    send "pouch build"
+    assert_on_exit_status
+    send "cat Pouchfile\n"
+    send "pouch build\n"
+    # TODO: Add expects here!
+    # TODO: Is the content of Pouchfile really ok?
     log_file -noappend [lindex $argv 0]
 }
 
