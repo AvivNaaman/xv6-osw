@@ -706,6 +706,20 @@ proc mounttest_with_ls {argv} {
     assert_on_exit_status
 }
 
+# - pouch image files tests
+# @argv - file name for logging
+proc test_pouch_build_invalid_args {argv} {
+    set timeout -1
+    # pouch build <invalid args> combinations, should fail.
+    send "pouch build a\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Unexpected argument a!"
+    }
+
+    send "poub"
+}
+
 #-------------------------------------------------------------------------
 #-MAIN--------------------------------------------------------------------
 #-------------------------------------------------------------------------
@@ -736,6 +750,23 @@ expect "$ "
 
 #uncomment for expect debugging
 #exp_internal 1
+
+# Iterate all files in ./pouchfile-tests and print them:
+set dir [glob -nocomplain -directory ./pouchfile-tests *]
+foreach file $dir {
+    send echo $file
+    log_file -noappend [lindex $argv 0]
+}
+
+exit 0
+
+
+# Iterate all files in ./pouchfile-tests and print them:
+set dir [glob -nocomplain -directory ./pouchfile-tests *]
+foreach file $dir {
+    send echo $file
+    log_file -noappend [lindex $argv 0]
+}
 
 #set running [ioctl_syscall_test $argv]
 #set running [cgroupstests $argv]

@@ -1,10 +1,12 @@
 #include "pouch.h"
 
+#include "user.h"
 #include "fcntl.h"
 #include "fs.h"
 #include "mutex.h"
 #include "ns_types.h"
 #include "param.h"
+#include "stat.h"
 
 /*
 *   Helper consts
@@ -1151,7 +1153,7 @@ static int pouch_build(char* file_name, char* tag) {
 	if (!file_name) {
 		file_name = "Pouchfile";
 	}
-	printf(stderr, "Building pouch image from  %s to tag %s...\n", file_name, tag);
+	printf(stderr, "Building pouch image from \"%s\" to tag \"%s\"...\n", file_name, tag);
     struct pouchfile* pouchfile = NULL;
     if (pouch_pouchfile_parse(file_name, &pouchfile) == ERROR_CODE)
     {
@@ -1272,29 +1274,45 @@ int main(int argc, char* argv[]) {
              if(pouch_limit_cgroup(container_name, argv[3], argv[4]) < 0){
                  exit(1);
              }
-	 }
-	     else if (cmd == BUILD){
-		 char* pouch_file_name = 0;
-		 char* image_tag = 0;
-		 char** options = &argv[2];
-		 while (options < argv + argc) {
-			if (strcmp(*options, "--file") == 0) {
-				if (options+1 >= argv+argc) {
-					printf(stderr, "Error: Expected file name after --file\n");
-				}
-				pouch_file_name = *(++options);
-			}
-			else if (strcmp(*options, "--tag") == 0) {
-				if (options+1 >= argv+argc) {
-					printf(stderr, "Error: Expected tag name after --tag\n");
-				}
-                                image_tag = *(++options);
-                        }
-			++options;
-		 }
-		 if (pouch_build(pouch_file_name, image_tag) < 0) {
-			 exit(1);
-		 } else if (pouch_cmd(container_name, image_name, pouch_file, cmd) < 0) {
+	    }
+	    else if (cmd == BUILD){
+            char* pouch_file_name = 0;
+            char* image_tag = 0;
+            char** options = &argv[2];
+            while (options < argv + argc) {
+                if (strcmp(*options, "--file") == 0) {
+                    if (options+1 >= argv+argc) {
+                        printf(stderr, "Error: Expected file name after --file\n");
+                        exit(1);
+                    }
+                    if (pouch_file_name) {
+                        printf(stderr, "Error: Specified more than one --file argument.\n");
+                        exit(1);
+                    }
+                    pouch_file_name = *(++options);
+                }
+                else if (strcmp(*options, "--tag") == 0) {
+                    if (options+1 >= argv+argc) {
+                        printf(stderr, "Error: Expected tag name after --tag\n");
+                        exit(1);
+                    }
+                    if (image_tag) {
+                        printf(stderr, "Error: Specified more than one --tag argument.\n");
+                        exit(1);
+                    }
+                    image_tag = *(++options);
+                }
+                else {
+                    printf(stderr, "Unexpected argument %s!\n", *options);
+                    exit(1);
+                }
+                ++options;
+            }
+            if (pouch_build(pouch_file_name, image_tag) < 0) {
+                exit(1);
+            }
+        }
+         else if (pouch_cmd(container_name, image_name, pouch_file, cmd) < 0) {
              printf(1, "Pouch: operation failed.\n");
              exit(1);
          }
