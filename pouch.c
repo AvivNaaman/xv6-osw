@@ -525,31 +525,33 @@ static int print_help_inside_cnt() {
   return retval;
 }
 
-void print_help_outside_cnt() {
-  printf(stderr, "\nPouch commands outside containers:\n");
-  printf(stderr, "       pouch start {name}\n");
-  printf(stderr, "          : starts a new container\n");
-  printf(stderr, "          - {name} : container name\n");
-  printf(stderr, "       pouch connect {name}\n");
-  printf(stderr, "          : connect already started container\n");
-  printf(stderr, "          - {name} : container name\n");
-  printf(stderr, "       pouch destroy {name}\n");
-  printf(stderr, "          : destroy a container\n");
-  printf(stderr, "          - {name} : container name\n");
-  printf(stderr, "       pouch info {name}\n");
-  printf(stderr, "          : query information about a container\n");
-  printf(stderr, "          - {name} : container name\n");
-  printf(stderr, "       pouch list all\n");
-  printf(stderr, "          : displays state of all created containers\n");
-  printf(stderr, "      \ncontainers cgroups:\n");
-  printf(stderr, "       pouch cgroup {cname} {state-object} [value]\n");
-  printf(stderr, "          : limit given cgroup state-object\n");
-  printf(stderr, "          - {name} : container name\n");
-  printf(stderr,
-         "          - {state-object} : cgroups state-object. Refer spec.\n");
-  printf(stderr,
-         "          - [value] : argument for the state-object, multiple values "
-         "delimited by ','\n");
+void print_help_outside_cnt(){
+    printf(stderr,"\nPouch commands outside containers:\n");
+    printf(stderr,"       pouch start {name}\n");
+    printf(stderr,"          : starts a new container\n");
+    printf(stderr,"          - {name} : container name\n");
+    printf(stderr,"       pouch connect {name}\n");
+    printf(stderr,"          : connect already started container\n");
+    printf(stderr,"          - {name} : container name\n");
+    printf(stderr,"       pouch destroy {name}\n");
+    printf(stderr,"          : destroy a container\n");
+    printf(stderr,"          - {name} : container name\n");
+    printf(stderr,"       pouch info {name}\n");
+    printf(stderr,"          : query information about a container\n");
+    printf(stderr,"          - {name} : container name\n");
+    printf(stderr,"       pouch list all\n");
+    printf(stderr,"          : displays state of all created containers\n");
+    printf(stderr,"      \ncontainers cgroups:\n");
+    printf(stderr,"       pouch cgroup {cname} {state-object} [value]\n");
+    printf(stderr,"          : limit given cgroup state-object\n");
+    printf(stderr,"          - {name} : container name\n");
+    printf(stderr,"          - {state-object} : cgroups state-object. Refer spec.\n");
+    printf(stderr,"          - [value] : argument for the state-object, multiple values delimited by ','\n");
+    printf(stderr,"      \npouch images:\n");
+    printf(stderr,"       pouch build [--file filename=Pouchfile] [--tag Tag=default]\n");
+    printf(stderr,"          : build a new pouch image using the specified parameters\n");
+    printf(stderr,"          - {--file} : The pouch file name to use for building the container.\n");
+    printf(stderr,"          - {--tag} : The tag to use for the output image\n");
 }
 
 static int create_pouch_cgroup(char* cg_cname, char* cname) {
@@ -637,7 +639,20 @@ static int print_cinfo(char* container_name, char* tty_name, int pid) {
     printf(1, "None.\n");
   }
 
-  return 0;
+    return 0;
+}
+
+static int pouch_build(char* file_name, char* tag) {
+	if (!tag) {
+		tag = "default"; //todo: getcwd?
+	}
+	if (!file_name) {
+		file_name = "Pouchfile";
+	}
+	printf(stderr, "Building pouch image from  %s to tag %s...\n", file_name, tag);
+	// TODO: Implement file parsing & image construction!
+	printf(stderr, "Built image to tag %s.\n", tag);
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -699,7 +714,10 @@ int main(int argc, char* argv[]) {
       cmd = LIST;
     } else if ((strcmp(argv[1], "images")) == 0) {
       cmd = IMAGES;
-    } else {
+    } else if((strcmp(argv[1],"build")) == 0 ){
+      cmd = BUILD;
+    }
+    else {
       if (ppid == 1)
         print_help_inside_cnt();
       else
@@ -717,35 +735,59 @@ int main(int argc, char* argv[]) {
       exit(1);
     }
 
-    // Inside the container the are only few commands permitted, disable others.
-    if (ppid == 1 && cmd != LIMIT && cmd != DISCONNECT /* && cmd != LIST*/
-        && cmd != INFO) {
-      if (cmd == START) {
-        printf(1, "Nesting containers is not supported.\n");
-        exit(1);
-      } else if (cmd == CONNECT) {
-        printf(1, "Nesting containers is not supported.\n");
-        exit(1);
-      } else if (cmd == DESTROY) {
-        printf(1, "Container can't be destroyed while connected.\n");
-        exit(1);
-      } else if (cmd == LIST) {
-        if (print_help_inside_cnt() < 0) {
-          exit(1);
-        }
-      }
-    } else {
-      // command execution
-      if (cmd == LIMIT && argc == 5) {
-        if (pouch_limit_cgroup(container_name, argv[3], argv[4]) < 0) {
-          exit(1);
-        }
-      } else if (pouch_cmd(container_name, image_name, pouch_file, cmd) < 0) {
-        printf(1, "Pouch: operation failed.\n");
-        exit(1);
-      }
-    }
-  }
+     // Inside the container the are only few commands permitted, disable others.
+     if(ppid == 1 && cmd != LIMIT && cmd != DISCONNECT /* && cmd != LIST*/
+             && cmd != INFO && cmd != BUILD){
+         if(cmd == START){
+             printf(1, "Nesting containers is not supported.\n");
+             exit(1);
+         }
+         else if(cmd == CONNECT){
+             printf(1, "Nesting containers is not supported.\n");
+             exit(1);
+         }
+         else if(cmd == DESTROY){
+             printf(1, "Container can't be destroyed while connected.\n");
+             exit(1);
+         }else if(cmd == LIST){
+             if (print_help_inside_cnt() < 0) {
+                exit(1);
+             }
+         }
+     }else {
+         //command execution
+         if(cmd == LIMIT && argc == 5){
+             if(pouch_limit_cgroup(container_name, argv[3], argv[4]) < 0){
+                 exit(1);
+             }
+	 }
+	     else if (cmd == BUILD){
+		 char* pouch_file_name = 0;
+		 char* image_tag = 0;
+		 char** options = &argv[2];
+		 while (options < argv + argc) {
+			if (strcmp(*options, "--file") == 0) {
+				if (options+1 >= argv+argc) {
+					printf(stderr, "Error: Expected file name after --file\n");
+				}
+				pouch_file_name = *(++options);
+			}
+			else if (strcmp(*options, "--tag") == 0) {
+				if (options+1 >= argv+argc) {
+					printf(stderr, "Error: Expected tag name after --tag\n");
+				}
+                                image_tag = *(++options);
+                        }
+			++options;
+		 }
+		 if (pouch_build(pouch_file_name, image_tag) < 0) {
+			 exit(1);
+		 } else if (pouch_cmd(container_name, image_name, pouch_file, cmd) < 0) {
+             printf(1, "Pouch: operation failed.\n");
+             exit(1);
+         }
+}    
+  
 
   exit(0);
 }
