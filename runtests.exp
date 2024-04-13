@@ -706,18 +706,117 @@ proc mounttest_with_ls {argv} {
     assert_on_exit_status
 }
 
-# - pouch image files tests
+# - pouch build image command line test, invalid arguments
 # @argv - file name for logging
 proc test_pouch_build_invalid_args {argv} {
-    set timeout -1
+    set timeout 3
+
     # pouch build <invalid args> combinations, should fail.
-    send "pouch build a\n"
+    send "pouch build add\n"
     log_file -noappend [lindex $argv 0]
     expect {
-        "Unexpected argument a!"
+        "Unexpected argument add!"
     }
 
-    send "poub"
+    send "pouch build --abb b\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Unexpected argument --abb!"
+    }
+
+    send "pouch build --tag\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Expected tag name after --tag"
+    }
+
+    send "pouch build --file a --tag\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Expected tag name after --tag"
+    }
+
+    send "pouch build --file --tag jkjk\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Unexpected argument jkjk!"
+    }
+
+    send "pouch build --file\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Expected file name after --file"
+    }
+
+    send "pouch build --file a --file b\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Specified more than one --file argument."
+    }
+
+    send "pouch build --file a --tag b --file b\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Specified more than one --file argument."
+    }
+
+    send "pouch build --tag a --file b --tag b\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Error: Specified more than one --tag argument."
+    }
+}
+
+# - pouch build image command line test, valid arguments
+# @argv - file name for logging
+proc test_pouch_build_valid_args {argv} {
+    set timeout 3
+
+    send "pouch build\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Building pouch image from \"Pouchfile\" to tag \"default\"..."
+    }
+    assert_on_exit_status
+
+    send "pouch build --tag hello\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Building pouch image from \"Pouchfile\" to tag \"hello\"..."
+    }
+    assert_on_exit_status
+
+    send "pouch build --file MyFile\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Building pouch image from \"MyFile\" to tag \"default\"..."
+    }
+    assert_on_exit_status
+
+    send "pouch build --file MyPouchFile --tag myimagetag\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Building pouch image from \"MyPouchFile\" to tag \"myimagetag\"..."
+    }
+    assert_on_exit_status
+
+    send "pouch build --tag my3imagetag --file My22PouchFile\n"
+    log_file -noappend [lindex $argv 0]
+    expect {
+        "Building pouch image from \"My22PouchFile\" to tag \"my3imagetag\"..."
+    }
+    assert_on_exit_status
+}
+
+proc test_pouch_build_file_parsing {argv} {
+    send "rm Pouchfile"
+    # Open pouchfile-test/test1, read line by line and echo (append) the current line to Pouchfile.
+    set fp [open pouchfile-test/test1 r]
+    while {[gets $fp line] != -1} {
+        send "echo \"$line\" >> Pouchfile\n"
+    }
+    send "pouch build"
+    log_file -noappend [lindex $argv 0]
 }
 
 #-------------------------------------------------------------------------
@@ -761,16 +860,9 @@ foreach file $dir {
 exit 0
 
 
-# Iterate all files in ./pouchfile-tests and print them:
-set dir [glob -nocomplain -directory ./pouchfile-tests *]
-foreach file $dir {
-    send echo $file
-    log_file -noappend [lindex $argv 0]
-}
-
-#set running [ioctl_syscall_test $argv]
-#set running [cgroupstests $argv]
-#set running [cgroup_io_states_test]
+set running [ioctl_syscall_test $argv]
+set running [cgroupstests $argv]
+set running [cgroup_io_states_test]
 
 #basic tests
 set running [cp_copy_file_test $argv]
@@ -791,6 +883,10 @@ set running [pouch_list_test $argv]
 set running [pouch_disconnect_outside_container_test $argv]
 set running [pouch_info_container_test $argv]
 set running [pouch_cgroup_limit_test $argv]
+
+set running [test_pouch_build_valid_args $argv]
+set running [test_pouch_build_invalid_args $argv]
+set running [test_pouch_build_file_parsing $argv]
 
 set running [pidns_tests $argv]
 set running [mounttest $argv]
