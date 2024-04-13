@@ -5,7 +5,7 @@
 #ifndef XV6_POUCH_H
 #define XV6_POUCH_H
 
-typedef enum p_cmd {START, CONNECT, DISCONNECT, DESTROY, LIMIT, INFO, LIST} p_cmd;
+typedef enum p_cmd {START, CONNECT, DISCONNECT, DESTROY, LIMIT, INFO, LIST, BUILD} p_cmd;
 #define CNTNAMESIZE 100
 #define CNTARGSIZE 30
 char *argv[] = { "sh", 0 };
@@ -159,6 +159,15 @@ static int print_cinfo(char* container_name, char * tty_name, int pid);
 *   @return: 0 - OK, <0 - FAILURE
 */
 static int get_connected_cname(char * cname);
+
+/*
+ * Builds a new pouch image to the specified tag,
+ * Using the specified image file name.
+ * @input file_name tag
+ * @output none
+ * @return: 0 - OK, <0 - FAILURE
+ */
+static int pouch_build(char* file_name, char* tag);
 
 #endif /* XV6_POUCH_H */
 
