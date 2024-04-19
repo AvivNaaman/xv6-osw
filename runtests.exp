@@ -863,12 +863,9 @@ expect "$ "
 # Iterate all files in ./pouchfile-tests and print them:
 set dir [glob -nocomplain -directory ./pouchfile-tests *]
 foreach file $dir {
-    send echo $file
+    send "echo $file"
     log_file -noappend [lindex $argv 0]
 }
-
-exit 0
-
 
 set running [ioctl_syscall_test $argv]
 set running [cgroupstests $argv]
