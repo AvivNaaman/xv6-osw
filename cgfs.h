@@ -5,6 +5,7 @@
 
 #include "cgroup.h"
 #include "stat.h"
+#include "vfs_file.h"
 
 #define CGFS_PROCS "cgroup.procs"
 #define CGFS_SUBTREE_CONTROL "cgroup.subtree_control"
@@ -24,42 +25,40 @@
 #define CGFS_MEM_MAX "memory.max"
 #define CGFS_MEM_MIN "memory.min"
 #define CGFS_MEM_STAT "memory.stat"
-#define CGFS_IO_STAT  "io.stat"
+#define CGFS_IO_STAT "io.stat"
 
+typedef enum cgroup_file_name_e {
+  CG_FILE_NAME_START = 0,
+  CGROUP_PROCS,
+  CGROUP_SUBTREE_CONTROL,
+  CGROUP_MAX_DESCENDANTS,
+  CGROUP_MAX_DEPTH,
+  CPU_WEIGHT,
+  CPU_MAX,
+  PID_MAX,
+  SET_CPU,
+  SET_FRZ,
+  MEM_MAX,
+  MEM_MIN,
 
-typedef enum cgroup_file_name_e
-{
-    CG_FILE_NAME_START = 0,
-    CGROUP_PROCS,
-    CGROUP_SUBTREE_CONTROL,
-    CGROUP_MAX_DESCENDANTS,
-    CGROUP_MAX_DEPTH,
-    CPU_WEIGHT,
-    CPU_MAX,
-    PID_MAX,
-    SET_CPU,
-    SET_FRZ,
-    MEM_MAX,
-    MEM_MIN,
+  NON_WRITABLE,
 
-    NON_WRITABLE,
-
-    CGROUP_CONTROLLERS,
-    CGROUP_EVENTS,
-    CGROUP_STAT,
-    CPU_STAT,
-    PID_CUR,
-    MEM_CUR,
-    MEM_STAT,
-    IO_STAT,
-    INVALID_TYPE
+  CGROUP_CONTROLLERS,
+  CGROUP_EVENTS,
+  CGROUP_STAT,
+  CPU_STAT,
+  PID_CUR,
+  MEM_CUR,
+  MEM_STAT,
+  IO_STAT,
+  INVALID_TYPE
 } cgroup_file_name_t;
-
 
 /**
  * This function opens a cgroup filesystem file or directory.
- * Receives cg_file_type parameter "type", string parameter "filename", cgroup struct pointer parameter "cgp", int parameter "omode".
- * "type" is a cg_file_type that denotes whether we are opening a file or a directory.
+ * Receives cg_file_type parameter "type", string parameter "filename", cgroup
+ * struct pointer parameter "cgp", int parameter "omode". "type" is a
+ * cg_file_type that denotes whether we are opening a file or a directory.
  * "filename" is a string containing the filename.
  * "cgp" is a pointer cgroup which the file belongs to.
  * "omode" is the opening mode. Same as with regular files.
@@ -86,17 +85,15 @@ typedef enum cgroup_file_name_e
  *    17)   "memory.min"
  * *  18)    cgroup directories
  */
-int unsafe_cg_open(cg_file_type type, char * filename, struct cgroup * cgp, int omode);
+int unsafe_cg_open(cg_file_type type, char* filename, struct cgroup* cgp,
+                   int omode);
 
 /**
  * This function reads from cgroup filesystem file or directory.
- * Receives file struct pointer parameter "f", string parameter "addr", int parameter "n".
- * "f" is a pointer to the file we read from.
- * "addr" is a pointer to the string we read the contents into.
- * "n" is the amount of characters to read.
- * Return values:
- * -1 on failure.
- * amount of characters read on success.
+ * Receives file struct pointer parameter "f", string parameter "addr", int
+ * parameter "n". "f" is a pointer to the file we read from. "addr" is a pointer
+ * to the string we read the contents into. "n" is the amount of characters to
+ * read. Return values: -1 on failure. amount of characters read on success.
  * currently supports reading from:
  *    1)    "cgroup.procs"
  *    2)    "cgroup.controllers"
@@ -117,18 +114,14 @@ int unsafe_cg_open(cg_file_type type, char * filename, struct cgroup * cgp, int 
  *    17)   "memory.min"
  **   18)    cgroup directories
  */
-int unsafe_cg_read(cg_file_type type, struct file * f, char * addr, int n);
-
+int unsafe_cg_read(cg_file_type type, struct vfs_file* f, char* addr, int n);
 
 /**
  * This function writes to cgroup filesystem file.
- * Receives file struct pointer parameter "f", string parameter "addr", int parameter "n".
- * "f" is a pointer to the file we write to.
- * "addr" is a pointer to the string we write the contents of.
- * "n" is the amount of characters to write.
- * Return values:
- * -1 on failure.
- * amount of characters written on success.
+ * Receives file struct pointer parameter "f", string parameter "addr", int
+ * parameter "n". "f" is a pointer to the file we write to. "addr" is a pointer
+ * to the string we write the contents of. "n" is the amount of characters to
+ * write. Return values: -1 on failure. amount of characters written on success.
  * currently supports writing to:
  *    1)    "cgroup.procs"
  *    2)    "cgroup.subree_control"
@@ -141,16 +134,16 @@ int unsafe_cg_read(cg_file_type type, struct file * f, char * addr, int n);
  *    9)    "memory.max"
  *   10)    "memory.min"
  */
-int unsafe_cg_write(struct file * f, char * addr, int n);
+int unsafe_cg_write(struct vfs_file* f, char* addr, int n);
 
 /**
  * This function closes a cgroup filesystem file or directory.
- * Executes fileclose() function from "file.c".
+ * Executes vfs_fileclose() function from "vfs_file.c".
  * Receives file struct pointer parameter "f".
  * "f" is a pointer to the file to be closed.
  * Returns 0 on success.
  */
-int unsafe_cg_close(struct file * file);
+int unsafe_cg_close(struct vfs_file* file);
 
 /**
  * This function extracts the file name from a given path.
@@ -161,7 +154,7 @@ int unsafe_cg_close(struct file * file);
  * -1 on failure.
  * 0 on success.
  */
-int get_base_name(char * path, char * base_name);
+int get_base_name(char* path, char* base_name);
 
 /**
  * This function extracts the directory path from a given path.
@@ -172,18 +165,14 @@ int get_base_name(char * path, char * base_name);
  * -1 on failure.
  * 0 on success.
  */
-int get_dir_name(char * path, char * dir_name);
+int get_dir_name(char* path, char* dir_name);
 
 /**
  * This function gets stats of cgorup file or directory.
- * Receives file struct pointer parameter "f", stat struct pointer parameter "st".
- * "f" is a pointer to the we get the stats of.
- * "st" is a pointer struct we write the stats to.
- * Return values:
- * -1 on failure.
- * 0 on success.
+ * Receives file struct pointer parameter "f", stat struct pointer parameter
+ * "st". "f" is a pointer to the we get the stats of. "st" is a pointer struct
+ * we write the stats to. Return values: -1 on failure. 0 on success.
  */
-int unsafe_cg_stat(struct file * f, struct stat * st);
+int unsafe_cg_stat(struct vfs_file* f, struct stat* st);
 
 #endif /* XV6_CGFS_H */
-

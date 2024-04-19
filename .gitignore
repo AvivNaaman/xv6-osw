@@ -15,3 +15,10 @@ kernelmemfs
 mkfs
 .gdbinit
 internal_fs_*
+*.swp
+*.orig
+.vscode
+.testci
+cppcheck-report/
+cppcheck.xml
+required_changes.txt

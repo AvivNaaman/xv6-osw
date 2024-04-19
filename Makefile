@@ -1,12 +1,14 @@
 MAKEFILE_DIRECTORY := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 OBJS = \
+	kvector.o\
 	bio.o\
 	console.o\
 	device.o\
 	exec.o\
-	file.o\
+	vfs_file.o\
 	fs.o\
+	vfs_fs.o\
 	ide.o\
 	ioapic.o\
 	kalloc.o\
@@ -21,6 +23,7 @@ OBJS = \
 	namespace.o\
 	picirq.o\
 	pipe.o\
+	procfs.o\
 	proc.o\
 	sleeplock.o\
 	spinlock.o\
@@ -42,12 +45,18 @@ OBJS = \
 	cgfs.o\
 	cgroup.o\
 	cpu_account.o\
+	obj_disk.o\
+	obj_cache.o\
+	obj_log.o\
+	obj_fs.o
+
+
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf
 
 # Using native tools (e.g., on X86 Linux)
-#TOOLPREFIX = 
+# TOOLPREFIX =
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -94,7 +103,8 @@ OBJDUMP = $(TOOLPREFIX)objdump
 
 ########## CFLAGS ##########
 CFLAGS = -static -MD -m32 -mno-sse -gstabs -std=gnu99 -Wall -Werror -Wstack-usage=4096 \
-	-fno-pic -fno-builtin -fno-strict-aliasing -fno-omit-frame-pointer $(OFLAGS)
+	-fno-pic -fno-builtin -fno-strict-aliasing -fno-omit-frame-pointer $(OFLAGS) \
+	-I$(MAKEFILE_DIRECTORY)
 
 #x86
 HOST_CPU_TSC_FREQ := $(shell cat /proc/cpuinfo | grep -i "cpu mhz" | head -n 1 | rev | cut -d ' ' -f 1 | rev | cut -d '.' -f 1)*1000
@@ -109,6 +119,7 @@ CFLAGS += -DXV6_WAIT_FOR_DEBUGGER=0
 endif
 
 OFLAGS = -O2
+CFLAGS += -DSTORAGE_DEVICE_SIZE=327680
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 ############################
 
@@ -180,8 +191,8 @@ _%: %.o $(ULIB)
 _forktest: forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
-	$(OBJDUMP) -S _forktest > forktest.asm
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+	$(OBJDUMP) -S $@ > forktest.asm
 
 mkfs: mkfs.c fs.h
 	gcc -ggdb -Werror -Wall -o mkfs mkfs.c
@@ -192,22 +203,28 @@ mkfs: mkfs.c fs.h
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 
+UPROGS_TESTS=\
+	tests/xv6/_forktest\
+	tests/xv6/_mounttest\
+	tests/xv6/_usertests\
+	tests/xv6/_pidns_tests\
+	tests/xv6/_cgroupstests\
+	tests/xv6/_ioctltests\
+	tests/xv6/_objfstests
+
 UPROGS=\
 	_cat\
+	_cp\
 	_echo\
-	_forktest\
 	_grep\
 	_init\
 	_kill\
 	_ln\
 	_ls\
 	_mkdir\
-	_mounttest\
 	_rm\
 	_sh\
 	_stressfs\
-	_usertests\
-	_pidns_tests\
 	_wc\
 	_zombie\
 	_mount\
@@ -215,12 +232,11 @@ UPROGS=\
 	_timer\
 	_cpu\
 	_mutex\
-	_cgroupstests\
     _pouch\
     _ctrl_grp\
     _demo_pid_ns\
     _demo_mount_ns\
-    _ioctltests
+    $(UPROGS_TESTS)
 
 INTERNAL_DEV=\
 	internal_fs_a\
@@ -243,7 +259,7 @@ clean: windows_debugging_clean
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit \
+	.gdbinit vectortests \
 	$(UPROGS) \
 	$(INTERNAL_DEV)
 
@@ -270,9 +286,9 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 2
+CPUS := cpus=2,cores=1
 endif
-QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
+QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA) -nographic
 
 gdb: OFLAGS = -Og -ggdb
 gdb: fs.img xv6.img
@@ -304,9 +320,10 @@ qemu-nox-gdb: gdb .gdbinit
 # check in that version.
 
 EXTRA=\
-	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
-        ln.c ls.c mkdir.c mounttest.c rm.c stressfs.c usertests.c pidns_tests.c wc.c zombie.c\
-        printf.c umalloc.c mount.c umount.c timer.c cpu.c mutex.c cgroupstests.c ioctltests.c\
+	mkfs.c ulib.c user.h cat.c cp.c echo.c grep.c kill.c ln.c ls.c mkdir.c rm.c\
+	stressfs.c wc.c zombie.c printf.c umalloc.c mount.c umount.c timer.c cpu.c\
+	mutex.c tests/xv6/forktest.c tests/xv6/mounttest.c tests/xv6/usertests.c\
+	tests/xv6/pidns_tests.c tests/xv6/cgroupstests.c tests/xv6/ioctltests.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 
@@ -355,3 +372,18 @@ windows_debugging_clean:
 
 .PHONY: dist-test dist windows_debugging windows_debugging_mkdir windows_debugging_clean
 
+# Object file system related files
+# TODO integrate with the rest of xv6 sources - would be done in later part.
+run-objfs-tests:
+	$(CC) $(CLAGS) \
+		obj_disk.c obj_cache.c obj_log.c tests/host/obj_fs_tests.c obj_fs_tests_utilities.c \
+		-std=gnu99 -DSTORAGE_DEVICE_SIZE=67108864 \
+		-o tests
+	./tests
+
+run-vector-tests:
+	$(CC) $(CLAGS) -DUNITTESTS=1 \
+		kvector.h kvector.c tests/host/unittests.h tests/host/kvectortest.c \
+		-std=gnu99 \
+		-o vectortests
+	./vectortests

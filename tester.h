@@ -1,10 +1,13 @@
 #ifndef XV6_TESTER_H
 #define XV6_TESTER_H
+
+#include "user.h"
 #include "wstatus.h"
 
-typedef int(*test_func_t)(void);
-int testsPassed = 0; /*In case all tests passed, this value will remain 0, else
-			it will become 1*/
+typedef int (*test_func_t)(void);
+/* In case all tests passed, this value will remain 0,
+ * else it will become 1. */
+int testsPassed = 0;
 
 int check(int r, const char *msg) {
   if (r < 0) {
@@ -25,7 +28,6 @@ static int child_exit_status(int pid) {
   return WEXITSTATUS(wstatus);
 }
 
-
 /*This function runs the test, if a test fails, it will print which test failed,
 and set the variable testsPassed to be 1*/
 void run_test(test_func_t func, const char *name) {
@@ -43,4 +45,3 @@ void run_test(test_func_t func, const char *name) {
   }
 }
 #endif /* XV6_TESTER_H */
- 

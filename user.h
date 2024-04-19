@@ -1,13 +1,14 @@
 #ifndef XV6_USER_H
 #define XV6_USER_H
 
-#include "types.h"
 #include "ioctl_request.h"
+#include "types.h"
 
 struct stat;
 struct rtcdate;
 
 #define stderr 2
+#define IMAGE_DIR "/images/"
 
 // system calls
 int fork(void);
@@ -35,13 +36,10 @@ int uptime(void);
 int ioctl(int fd, unsigned long request, ...);
 int getppid(void);
 int getcpu(void);
-int getmem(void);
 int kmemtest(void);
 
-int mount(const char*, const char*, const char *);
+int mount(const char*, const char*, const char*);
 int umount(const char*);
-int printmounts(void);
-int printdevices(void);
 int unshare(int);
 
 // ulib.c
@@ -51,7 +49,7 @@ void* memmove(void*, const void*, int);
 char* strchr(const char*, char c);
 int strcmp(const char*, const char*);
 int strncmp(const char*, const char*, int);
-char* strstr(char * src, char * needle);
+char* strstr(char* src, char* needle);
 int printf(int, const char*, ...);
 char* gets(char*, int max);
 uint strlen(const char*);
@@ -59,7 +57,7 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
-int itoa(char *, int);
+int itoa(char*, int);
 char* strcat(char* dest, const char* source);
 
 int attach_tty(int tty_fd);

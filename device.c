@@ -1,40 +1,37 @@
-#include "types.h"
-#include "defs.h"
-#include "spinlock.h"
-#include "fs.h"
-#include "sleeplock.h"
-#include "file.h"
 #include "device.h"
 
-#define NLOOPDEVS (10)
-#define NIDEDEVS (2)
+#include "defs.h"
+#include "file.h"
+#include "obj_disk.h"
+#include "sleeplock.h"
+#include "types.h"
 
-struct device {
-  struct superblock sb;
-  int ref;
-  struct inode *ip;
-};
+struct dev_holder_s dev_holder = {0};
 
-struct {
-  struct spinlock lock; // protects loopdevs
-  struct device loopdevs[NLOOPDEVS];
-  struct superblock idesb[NIDEDEVS];
-} dev_holder;
-
-void
-devinit(void)
-{
+void devinit(void) {
+  int i = 0;
   initlock(&dev_holder.lock, "dev_list");
+
+  // Initiate ref of obj device for future use. (if the device will be save as
+  // internal_fs files and not in the ram)
+  for (i = 0; i < NOBJDEVS; i++) {
+    dev_holder.objdev[i].ref = 0;
+  }
 }
 
-int
-getorcreatedevice(struct inode *ip)
-{
+void objdevinit(uint dev) {
+  if (dev < NOBJDEVS) {
+    memcpy(&dev_holder.objdev[dev].sb, memory_storage,
+           sizeof(dev_holder.objdev[dev].sb));
+  }
+}
+
+int getorcreatedevice(struct vfs_inode *ip) {
   acquire(&dev_holder.lock);
   int emptydevice = -1;
   for (int i = 0; i < NLOOPDEVS; i++) {
     if (dev_holder.loopdevs[i].ref == 0 && emptydevice == -1) {
-      emptydevice = i;    
+      emptydevice = i;
     } else if (dev_holder.loopdevs[i].ip == ip) {
       dev_holder.loopdevs[i].ref++;
       release(&dev_holder.lock);
@@ -48,32 +45,57 @@ getorcreatedevice(struct inode *ip)
   }
 
   dev_holder.loopdevs[emptydevice].ref = 1;
-  dev_holder.loopdevs[emptydevice].ip = idup(ip);
+  dev_holder.loopdevs[emptydevice].ip = ip->i_op.idup(ip);
   release(&dev_holder.lock);
   fsinit(LOOP_DEVICE_TO_DEV(emptydevice));
   return LOOP_DEVICE_TO_DEV(emptydevice);
 }
 
-void deviceget(uint dev)
-{
+int getorcreateobjdevice() {
+  acquire(&dev_holder.lock);
+  int emptydevice = -1;
+  for (int i = 0; i < NOBJDEVS; i++) {
+    if (dev_holder.objdev[i].ref == 0 && emptydevice == -1) {
+      emptydevice = i;
+    }
+  }
+
+  if (emptydevice == -1) {
+    cprintf("Not available obj device\n");
+    release(&dev_holder.lock);
+    return -1;
+  }
+
+  dev_holder.objdev[emptydevice].ref = 1;
+  release(&dev_holder.lock);
+  objdevinit(emptydevice);
+  /* Save a reference to the root in order to release it in umount. */
+  dev_holder.objdev[emptydevice].root_ip = obj_fsinit(OBJ_TO_DEV(emptydevice));
+  return OBJ_TO_DEV(emptydevice);
+}
+
+void deviceget(uint dev) {
   if (IS_LOOP_DEVICE(dev)) {
     dev = DEV_TO_LOOP_DEVICE(dev);
     acquire(&dev_holder.lock);
     dev_holder.loopdevs[dev].ref++;
     release(&dev_holder.lock);
+  } else if (IS_OBJ_DEVICE(dev)) {
+    dev = DEV_TO_OBJ_DEVICE(dev);
+    acquire(&dev_holder.lock);
+    dev_holder.objdev[dev].ref++;
+    release(&dev_holder.lock);
   }
 }
 
-void
-deviceput(uint dev)
-{
+void deviceput(uint dev) {
   if (IS_LOOP_DEVICE(dev)) {
     dev = DEV_TO_LOOP_DEVICE(dev);
     acquire(&dev_holder.lock);
     if (dev_holder.loopdevs[dev].ref == 1) {
       release(&dev_holder.lock);
 
-      iput(dev_holder.loopdevs[dev].ip);
+      dev_holder.loopdevs[dev].ip->i_op.iput(dev_holder.loopdevs[dev].ip);
       invalidateblocks(LOOP_DEVICE_TO_DEV(dev));
 
       acquire(&dev_holder.lock);
@@ -81,12 +103,24 @@ deviceput(uint dev)
     }
     dev_holder.loopdevs[dev].ref--;
     release(&dev_holder.lock);
+  } else if (IS_OBJ_DEVICE(dev)) {
+    dev = DEV_TO_OBJ_DEVICE(dev);
+    acquire(&dev_holder.lock);
+    dev_holder.objdev[dev].ref--;
+    if (dev_holder.objdev[dev].ref == 1) {
+      release(&dev_holder.lock);
+
+      struct vfs_inode *root_ip = dev_holder.objdev[dev].root_ip;
+      root_ip->i_op.iput(root_ip);
+
+      acquire(&dev_holder.lock);
+      dev_holder.objdev[dev].root_ip = 0;
+    }
+    release(&dev_holder.lock);
   }
 }
 
-struct inode*
-getinodefordevice(uint dev)
-{
+struct vfs_inode *getinodefordevice(uint dev) {
   if (!IS_LOOP_DEVICE(dev)) {
     return 0;
   }
@@ -100,46 +134,36 @@ getinodefordevice(uint dev)
   return dev_holder.loopdevs[dev].ip;
 }
 
-void
-printdevices(void)
-{
-  acquire(&dev_holder.lock);
-
-  cprintf("Printing devices:\n");
-  for (int i = 0; i < NLOOPDEVS; i++) {
-    if (dev_holder.loopdevs[i].ref != 0) {
-      cprintf("Device %d backed by inode %x with ref %d\n", i, dev_holder.loopdevs[i].ip, dev_holder.loopdevs[i].ref);
-    }
-  }
-  release(&dev_holder.lock);
-}
-
-struct superblock*
-getsuperblock(uint dev)
-{
+struct vfs_superblock *getsuperblock(uint dev) {
   if (IS_LOOP_DEVICE(dev)) {
     uint loopdev = DEV_TO_LOOP_DEVICE(dev);
     if (loopdev >= NLOOPDEVS) {
       panic("could not find superblock for device: device number to high");
     }
-    if (dev_holder.loopdevs[loopdev].ref == 0)
-    {
+    if (dev_holder.loopdevs[loopdev].ref == 0) {
       panic("could not find superblock for device: device ref count is 0");
+    } else {
+      return &dev_holder.loopdevs[loopdev].sb.vfs_sb;
     }
-    else
-    {
-      return &dev_holder.loopdevs[loopdev].sb;
+  } else if (IS_OBJ_DEVICE(dev)) {
+    uint objdev = DEV_TO_OBJ_DEVICE(dev);
+    if (objdev >= NOBJDEVS) {
+      panic("could not find obj superblock for device: device number to high");
+    }
+    if (dev_holder.objdev[objdev].ref == 0) {
+      panic("could not find obj superblock for device: device ref count is 0");
+    } else {
+      return &dev_holder.objdev[objdev].sb.vfs_sb;
     }
   } else if (dev < NIDEDEVS) {
-    return &dev_holder.idesb[dev];
+    return &dev_holder.idesb[dev].vfs_sb;
   } else {
+    cprintf("could not find superblock for device, dev: %d\n", dev);
     panic("could not find superblock for device");
   }
 }
 
-int
-doesbackdevice(struct inode* ip)
-{
+int doesbackdevice(struct vfs_inode *ip) {
   acquire(&dev_holder.lock);
   for (int i = 0; i < NLOOPDEVS; i++) {
     if (dev_holder.loopdevs[i].ip == ip) {

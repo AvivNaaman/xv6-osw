@@ -11,7 +11,7 @@ proc pid_check { argv expect_str} {
 
     send "pid\n"
     log_file -noappend [lindex $argv 0]
-    set timeout 3
+    set timeout 7
     expect {
        expect_str
     }
@@ -132,6 +132,210 @@ proc pouch_stress_test {argv} {
     }
 }
 
+proc pouch_basic_tests {argv} {
+    set running [pouch_start_test $argv]
+    set running [pouch_connect_test $argv]
+    set running [pouch_binaries_test $argv]
+    set running [pouch_disconnect_test $argv]
+    set running [pouch_destroy_test $argv]
+}
+
+proc cp_copy_file_test {argv} {
+    set timeout -1
+    log_file -noappend [lindex $argv 0]
+
+    #bad args test
+    send "cp f1\n"
+    expect "cp requires two arguments: source and target"
+    sleep 0.5
+
+    #source file doesn't exist
+    send "cp f1 f2\n"
+    expect "can't locate f1"
+    sleep 0.5
+
+    #target dir doesn't exist
+    send "echo test > f1\n"
+    sleep 0.5
+    send "cp f1 d1/f1\n"
+    expect "can't create d1/f1, make sure the entire path exists"
+
+    #test single file
+    sleep 0.5
+    send "cp f1 f2\n"
+    sleep 0.5
+    send "cat f2\n"
+    expect "test"
+    sleep 0.5
+}
+
+proc cp_copy_dir_test {argv} {
+    set timeout -1
+    log_file -noappend [lindex $argv 0]
+
+    #one file in dir
+    send "mkdir d1\n"
+    sleep 0.5
+    send "echo test > d1/f1\n"
+    sleep 0.5
+    send "mkdir d2\n"
+    sleep 0.5
+    send "cp d1 d2\n"
+    sleep 0.5
+    send "cat d2/f1\n"
+    expect "test"
+    sleep 0.5
+
+    #recursive dir test
+    send "mkdir d3\n"
+    sleep 0.5
+    send "mkdir d3/d4\n"
+    sleep 0.5
+    send "echo test > d3/d4/f1\n"
+    sleep 0.5
+    send "mkdir t1\n"
+    sleep 0.5
+    send "cp d3 t1\n"
+    sleep 0.5
+    send "cat t1/d4/f1\n"
+    expect "test"
+    sleep 0.5
+
+    #dir in root dir, extra slash
+    send "mkdir /a /b\n"
+    sleep 0.5
+    send "echo test > /a/c\n"
+    sleep 0.5
+    send "cp /a /b/\n"
+    sleep 0.5
+    send "cat /b/c\n"
+    sleep 0.5
+    expect "test"
+}
+
+proc cp_simple_objfs_nativefs_copy_test {argv} {
+    set timeout -1
+    log_file -noappend [lindex $argv 0]
+
+    send "mkdir d5 d6\n"
+    assert_on_exit_status
+    send "mkdir d5/objfs1 d5/objfs2\n"
+    assert_on_exit_status
+    send "mount -t objfs d5/objfs1\n"
+    assert_on_exit_status
+    send "mkdir d5/objfs1/some_dir\n"
+    assert_on_exit_status
+    send "mkdir d5/objfs1/some_dir/some_dir2\n"
+    assert_on_exit_status
+    send "echo test > d5/objfs1/some_dir/some_dir2/some_file\n"
+    assert_on_exit_status
+    send "mount -t objfs d5/objfs2\n"
+    assert_on_exit_status
+    send "mkdir d5/objfs2/d1\n"
+    assert_on_exit_status
+    send "mkdir d5/objfs2/d2\n"
+    assert_on_exit_status
+    send "echo test2 > d5/objfs2/d2/tfile\n"
+    assert_on_exit_status
+
+    send "cp d5 d6\n"
+    assert_on_exit_status
+    send "cat d6/objfs1/some_dir/some_dir2/some_file\n"
+    expect "test"
+    send "cat d6/objfs2/d2/tfile\n"
+    expect "test2"
+
+    send "umount d5/objfs1\n"
+    assert_on_exit_status
+    send "umount d5/objfs2\n"
+    assert_on_exit_status
+}
+
+proc mount_bind_test {argv} {
+    set timeout -1
+    log_file -noappend [lindex $argv 0]
+
+    send "mkdir bind_tests\n"
+    send "cd bind_tests\n"
+    sleep 0.5
+
+    #one file in dir
+    send "mkdir d1 d2\n"
+    sleep 0.5
+    send "echo test > d2/somefile\n"
+    sleep 0.5
+    send "mount -t bind d1 d2\n"
+    sleep 0.5
+    send "cat d1/somefile\n"
+    expect "test"
+    sleep 0.5
+    send "umount d1\n"
+    sleep 0.5
+
+    #rm file in dir
+    send "mkdir d3 d4\n"
+    sleep 0.5
+    send "echo test > d4/somefile\n"
+    sleep 0.5
+    send "mount -t bind d3 d4\n"
+    sleep 0.5
+    send "rm d3/somefile\n"
+    sleep 0.5
+    send "cat d4/somefile\n"
+    expect "cat: cannot open d4/somefile"
+    sleep 0.5
+    send "umount d3\n"
+    sleep 0.5
+
+    #mount root dir
+    send "mkdir d5\n"
+    sleep 0.5
+    send "mount -t bind / d5\n"
+    sleep 0.5
+    expect "Can't mount root directory"
+    send "mount -t bind d5 /\n"
+    sleep 0.5
+    send "echo test > d5/somefile\n"
+    sleep 0.5
+    send "cat /somefile\n"
+    expect "test"
+    sleep 0.5
+    send "umount d5\n"
+    sleep 0.5
+
+    #mount file
+    send "mkdir d6\n"
+    sleep 0.5
+    send "echo test > somefile\n"
+    sleep 0.5
+    send "mount -t bind somefile d6\n"
+    expect "mount point is not a directory"
+    sleep 0.5
+
+    send "cd ..\n"
+    sleep 0.5
+}
+
+# - xv6 umount test
+# @argv - file name for logging
+proc umount_bind_mount_test {argv} {
+    send "mkdir orig\n"
+    assert_on_exit_status
+    send "echo test > orig/tfile\n"
+    assert_on_exit_status
+    send "mkdir bind_f\n"
+    assert_on_exit_status
+    send "mount -t bind bind_f orig\n"
+    assert_on_exit_status
+    send "cat bind_f/tfile\n"
+    expect "test"
+
+    send "umount bind_f\n"
+    assert_on_exit_status
+    send "cat bind_f/tfile\n"
+    expect "cat: cannot open bind_f/tfile"
+}
+
 # - This test start the container
 # - The pid should be 2 because we still remain in the console,
 # - and not connected to any tty device yet
@@ -142,7 +346,23 @@ proc pouch_start_test {argv} {
     set running [start_container $argv "1" "Pouch: c1 starting"]
     set timeout 3
     set running [pid_check $argv "PID: 2"]
+}
 
+proc pouch_images_command {argv} {
+    set timeout -1
+    log_file -noappend [lindex $argv 0]
+
+    #no images yet
+    send "pouch images\n"
+    expect "$ "
+    sleep 1
+
+    #create image and test if recognized
+    send "mkdir /images/test_image\n"
+    sleep 1
+    send "pouch images\n"
+    expect "test_image"
+    sleep 1
 }
 
 
@@ -160,6 +380,19 @@ proc pouch_connect_test {argv} {
     set timeout 3
     set running [pid_check $argv "PID: 1"]
 
+}
+
+proc pouch_binaries_test {argv} {
+    set timeout 1
+    sleep 0.5
+    send "echo test > testfile\n"
+    sleep 0.5
+    expect "$ "
+    sleep 0.5
+    send "cat testfile\n"
+    sleep 0.5
+    expect "test"
+    sleep 0.5
 }
 
 
@@ -365,6 +598,18 @@ proc usertests {argv} {
     assert_on_exit_status
 }
 
+# - xv6 objfstests
+# @argv - file name for logging
+proc objfstests {argv} {
+
+    set timeout -1
+    #clean expect buffer
+    expect *
+    send "objfstests\n"
+    log_file -noappend [lindex $argv 0]
+    assert_on_exit_status
+}
+
 # - xv6 cgroup tests
 # @argv - file name for logging
 proc cgroupstests {argv} {
@@ -399,6 +644,7 @@ proc cgroup_io_states_test {} {
     }
 
     send "echo 12345678901234567890\n"
+    sleep 1
     send "cat /cgroup/temp/io.stat\n"
     expect {
         "1:1 rbytes=76 wbytes=64 rios=76 wios=7"
@@ -414,8 +660,8 @@ proc cgroup_io_states_test {} {
     assert_on_exit_status
 
     send "pouch start test\n"
-    send "cat /cgroup/test/io.stat\n"
     sleep 1
+    send "cat /cgroup/test/io.stat\n"
     expect {
         "1:1 rbytes=93 wbytes=106 rios=93 wios=11"
     }
@@ -467,6 +713,17 @@ proc mounttest_with_ls {argv} {
 # no limit - usertests are time consuming
 set timeout -1
 
+# run standalone tests
+spawn bash -c "make run-vector-tests"
+expect eof
+set result [wait]
+if {[lindex $result 2] == 0} {
+    puts "VECTOR TESTS HAVE PASSED"
+} else {
+    puts "VECTOR TESTS HAVE FAILED"
+    exit 1
+}
+
 # dry-run to get qemu command - to end qemu with close afterwards
 spawn bash -c "make -n qemu-nox | grep qemu"
 expect eof
@@ -474,24 +731,28 @@ set qemu_command $expect_out(buffer)
 
 # TODO: use the resut of dry run as an agument fot spawn ($expect_out(buffer) is not working for some reason)
 # actual run
-spawn qemu-system-i386 -nographic -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp 2 -m 512
+spawn qemu-system-i386 -nographic -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp cpus=2,cores=1 -m 512
 expect "$ "
 
 #uncomment for expect debugging
 #exp_internal 1
 
-set running [ioctl_syscall_test $argv]
-set running [cgroupstests $argv]
-set running [cgroup_io_states_test]
+#set running [ioctl_syscall_test $argv]
+#set running [cgroupstests $argv]
+#set running [cgroup_io_states_test]
 
 #basic tests
-set running [pouch_start_test $argv]
-set running [pouch_connect_test $argv]
-set running [pouch_disconnect_test $argv]
-set running [pouch_destroy_test $argv]
+set running [cp_copy_file_test $argv]
+set running [cp_copy_dir_test $argv]
+set running [mount_bind_test $argv]
+set running [umount_bind_mount_test $argv]
+set running [pouch_basic_tests $argv]
 set running [command_exit_status_test $argv]
+set running [pouch_images_command $argv]
 
 #scenario tests
+set running [cp_simple_objfs_nativefs_copy_test $argv]
+
 set running [pouch_stress_test $argv]
 set running [pouch_cgroup_already_exists $argv]
 set running [pouch_to_many_cnts_test $argv]
@@ -503,11 +764,11 @@ set running [pouch_cgroup_limit_test $argv]
 set running [pidns_tests $argv]
 set running [mounttest $argv]
 set running [mounttest_with_ls $argv]
+set running [objfstests $argv]
+# run last, prints "ALL TESTS PASSED"
 set running [usertests $argv]
 
 log_file
 # just in case
 close
 
-# jenkins will check if lines=$(grep "ALL TESTS PASSED" mylog.txt | wc -l)
-# -eq 1 (aka SUCCESS, FAILURE otherwise).

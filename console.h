@@ -4,7 +4,7 @@
 
 #include "spinlock.h"
 
-//PAGEBREAK: 50
+// PAGEBREAK: 50
 #define BACKSPACE 0x100
 #define CRTPORT 0x3d4
 
@@ -26,6 +26,4 @@ typedef struct tty {
   uint tty_bytes_written;
 } tty;
 
-
-#endif /* XV6_CONSOLE_H */
-
+#endif
