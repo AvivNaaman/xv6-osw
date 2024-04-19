@@ -14,8 +14,9 @@ typedef enum p_cmd {
   INFO,
   LIST,
   IMAGES,
+  BUILD,
 } p_cmd;
-typedef enum p_cmd {START, CONNECT, DISCONNECT, DESTROY, LIMIT, INFO, LIST, BUILD} p_cmd;
+
 #define CNTNAMESIZE 100
 #define CNTARGSIZE 30
 char* argv[] = {"sh", 0};
