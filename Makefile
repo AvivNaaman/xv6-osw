@@ -242,7 +242,7 @@ TEST_ASSETS=
 
 ifeq ($(TEST), 1)
     UPROGS += $(UPROGS_TESTS)
-	TEST_ASSETS += tests/pouchfiles/Valid1.Pouchfile
+	TEST_ASSETS += $(wildcard tests/pouchfiles/*)
 endif
 
 INTERNAL_DEV=\
