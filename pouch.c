@@ -240,12 +240,12 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
     }
 
     free(import_line);
+    import_line = NULL;
 
     char* run_command_line = NULL;
     int run_command_line_length = 0;
     int extract_line_status = SUCCESS_CODE;
     while (extract_line_status == SUCCESS_CODE) {
-            printf(stderr, "Reading next line of run\n");
         if ((extract_line_status = extract_line(pouchfile_fd, &run_command_line, &run_command_line_length)) != SUCCESS_CODE)
         {
             if (extract_line_status == ERROR_CODE) {
@@ -257,7 +257,6 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
               break;
             }
         }
-    printf(stderr, "Run command %d,%s", run_command_line_length, run_command_line);
 
         if (run_command_line_length == 0)
         {
@@ -273,12 +272,12 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
         }
 
         char* run_command_start = run_token_start + sizeof(POUCHFILE_RUN_TOKEN);
-        while (is_whitespace(*run_command_start) && *image_name_start)
+        while (is_whitespace(*run_command_start) && *run_command_start)
         {
             ++run_command_start;
         }
 
-        if (*image_name_start == '\0') {
+        if (*run_command_start == '\0') {
             printf(stderr, "Failed to find run argument in first line of Pouchfile\n");
             exit_code = ERROR_CODE;
             goto pouch_commands_error;
@@ -294,11 +293,13 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
           free(run_command_line);
     }
   run_command_line = NULL;
-
+  
 pouch_commands_add_error:
     free(run_command_line);
 pouch_commands_error:
-    pouchfile_destroy(pouchfile);
+    if (exit_code != SUCCESS_CODE) {
+      pouchfile_destroy(pouchfile);
+    }
 pouchfile_creation_error:
     free(import_line);
 image_line_error:
@@ -939,7 +940,6 @@ static int pouch_build(char* file_name, char* tag) {
     	printf(stderr, "Error parsing Pouchfile %s\n", file_name);
         return ERROR_CODE;
     }
-
     // TODO: Implement image construction!
     (void)pouchfile;
 
