@@ -53,7 +53,7 @@ static int is_whitespace(const char c)
 /*
 *   Pouchfile functions
 */
-static int extract_line(const int pouchfile_fd, char** const line, int* const count)
+static int next_line(const int pouchfile_fd, char** const line, int* const count)
 {
     int exit_code = SUCCESS_CODE;
     *count = 0;
@@ -67,13 +67,21 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
     char current = 0;
     int index = 0;
 
-    int status = 0;
-    while ((status = read(pouchfile_fd, &current, 1)) > 0)
+    int read_ret = 0;
+    bool started_read = false;
+    while ((read_ret = read(pouchfile_fd, &current, 1)) > 0)
     {
-        if (current == '\n' || current == NULL)
+        /* Skip initial whitespace */
+        if (!started_read) { 
+          if (is_whitespace(current)) {
+            continue;
+          }
+          started_read = true;
+        }
+
+        if (current == '\n' || current == '\0')
         {
-            line[index] = NULL;
-            goto exit;
+            break;
         }
 
         (*line)[index] = current;
@@ -86,8 +94,7 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
             char* new_line = (char*)malloc(sizeof(char)*allocated_line_length);
             if (new_line == NULL)
             {
-                exit_code = ERROR_CODE;
-                goto exit_free;
+                goto exit_error;
             }
 
             memmove(new_line, *line, last_line_length);
@@ -95,35 +102,48 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
             *line = new_line;
         }
     }
-    if (status == 0) {
-  exit_code = END_OF_FILE_CODE;
-    }
-exit_free:
-    free(*line);
-    *line = NULL;
 
-exit:
+    if (read_ret == 0) {
+      exit_code = END_OF_FILE_CODE;
+    }
+    (*line)[index] = '\0';
     *count = index;
     return exit_code;
+
+exit_error:
+    free(*line);
+    *line = NULL;
+    return ERROR_CODE;
 }
 
 static int pouchfile_init(struct pouchfile** const pouchfile, const char* const image_name)
 {
-    *pouchfile = (struct pouchfile*)malloc(sizeof(struct pouchfile));
-    if (pouchfile == NULL)
+    *pouchfile = NULL;
+
+    if (image_name == NULL) 
     {
-        return ERROR_CODE;
+        printf(stderr, "Empty image name!\n");
+        goto error_image_name;
     }
 
     int image_name_length = strlen(image_name);
     if (image_name_length == 0)
     {
+        printf(stderr, "Empty image name!\n");
         goto error_image_name;
+    }
+
+    *pouchfile = (struct pouchfile*)malloc(sizeof(struct pouchfile));
+    if (pouchfile == NULL)
+    {
+        printf(stderr, "Pouchfile struct alloc failed!\n");
+        return ERROR_CODE;
     }
     
     (*pouchfile)->image_name = (char*)malloc(sizeof(char)*(image_name_length + 1));
     if ((*pouchfile)->image_name == NULL)
-    {
+    { 
+        printf(stderr, "Image name alloc failed!\n");
         goto error_image_name;
     }
 
@@ -196,6 +216,30 @@ error_new_command:
     return ERROR_CODE;
 }
 
+static char* pouchfile_skip_cmd(char* line, const char* pouchfile_token) 
+{
+  char* const end_of_original_line = line + strlen(line);
+
+  char* next_token = strtok_r(line, " \t\n\r\f", NULL);
+  if (next_token == NULL)
+ {
+  return NULL;
+ }
+ if (strcmp(next_token, pouchfile_token) == 0) {
+  char *to_return= next_token + strlen(next_token);
+  // Skip whitespace after token, if there are some.
+  while (to_return < end_of_original_line && is_whitespace(*to_return)) {
+    ++to_return;
+  }
+  if (to_return < end_of_original_line)
+    return to_return+1;
+  else
+    return to_return;
+ }
+
+ return NULL;
+}
+
 static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchfile** const pouchfile)
 {
     int exit_code = SUCCESS_CODE;
@@ -208,34 +252,44 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
 
     char* import_line = NULL;
     int import_line_length = 0;
-    if (extract_line(pouchfile_fd, &import_line, &import_line_length) == ERROR_CODE)
-    {
-        printf(stderr, "Failed to extract import line from Pouchfile\n");
-        goto image_line_error;
+    enum POUCH_INTERNAL_STATUS_CODES read_line_code = SUCCESS_CODE;
+
+    /* Extract import, skip empty lines, break on end-of-file. */
+    while (read_line_code == SUCCESS_CODE) {
+      if ((read_line_code = next_line(pouchfile_fd, &import_line, &import_line_length)) == ERROR_CODE)
+      {
+          printf(stderr, "Failed to read import line from Pouchfile\n");
+          goto image_line_error;
+      }
+      if (import_line_length > 0)
+      {
+        break;
+      }
     }
 
-    if (import_line_length == 0)
-    {
-        printf(stderr, "Empty import line in Pouchfile\n");
-        goto pouchfile_creation_error;
+    if (import_line_length == 0) {
+      printf(stderr, "No import line found in Pouchfile\n");
+      exit_code = ERROR_CODE;
+      goto pouchfile_creation_error;
     }
     
-    char* const import_token_start = strstr(import_line, POUCHFILE_IMPORT_TOKEN);
-    if (import_token_start == NULL)
+    char* const image_name_start = pouchfile_skip_cmd(import_line, POUCHFILE_IMPORT_TOKEN);
+    if (image_name_start == NULL)
     {
-        printf(stderr, "Failed to find import directive in first line of Pouchfile\n");
+        printf(stderr, "Failed to find import directive in first line of Pouchfile: %s\n", import_line);
+        exit_code = ERROR_CODE;
         goto pouchfile_creation_error;
     }
-
-    char* image_name_start = import_token_start + sizeof(POUCHFILE_IMPORT_TOKEN);
-    while (is_whitespace(*image_name_start) && *image_name_start)
-    {
-        ++image_name_start;
+    if (*image_name_start == '\0' || import_line + import_line_length < image_name_start) {
+        printf(stderr, "Failed to find image name for import directive in first line of Pouchfile: %s\n", import_line);
+        exit_code = ERROR_CODE;
+        goto pouchfile_creation_error;
     }
 
     if (pouchfile_init(pouchfile, image_name_start) == ERROR_CODE)
     {
         printf(stderr, "Failed to init pouchfile struct\n");
+        exit_code = ERROR_CODE;
         goto pouchfile_creation_error;
     }
 
@@ -246,16 +300,11 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
     int run_command_line_length = 0;
     int extract_line_status = SUCCESS_CODE;
     while (extract_line_status == SUCCESS_CODE) {
-        if ((extract_line_status = extract_line(pouchfile_fd, &run_command_line, &run_command_line_length)) != SUCCESS_CODE)
+        if ((extract_line_status = next_line(pouchfile_fd, &run_command_line, &run_command_line_length)) == ERROR_CODE)
         {
-            if (extract_line_status == ERROR_CODE) {
-              printf(stderr, "Failed to extract run line from Pouchfile\n");
-              exit_code = ERROR_CODE;
-              goto pouch_commands_error;
-            }
-            if (extract_line_status == END_OF_FILE_CODE) {
-              break;
-            }
+          printf(stderr, "Failed to extract run line from Pouchfile\n");
+          exit_code = ERROR_CODE;
+          goto pouch_commands_error;
         }
 
         if (run_command_line_length == 0)
@@ -263,20 +312,13 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
           goto skip_line;
         }
         
-        char* const run_token_start = strstr(run_command_line, POUCHFILE_RUN_TOKEN);
-        if (run_token_start == NULL)
+        char* const run_command_start = pouchfile_skip_cmd(run_command_line, POUCHFILE_RUN_TOKEN);
+        if (run_command_start == NULL)
         {
             printf(stderr, "Failed to find run directive in first line of Pouchfile\n");
             exit_code = ERROR_CODE;
             goto pouch_commands_add_error;
         }
-
-        char* run_command_start = run_token_start + sizeof(POUCHFILE_RUN_TOKEN);
-        while (is_whitespace(*run_command_start) && *run_command_start)
-        {
-            ++run_command_start;
-        }
-
         if (*run_command_start == '\0') {
             printf(stderr, "Failed to find run argument in first line of Pouchfile\n");
             exit_code = ERROR_CODE;
