@@ -1,4 +1,4 @@
-FROM myimage123
+IMPORT myimage123
 
 RUN ls
 RUN echo Hello, World > hello.txt
@@ -7,6 +7,6 @@ RUN ls
 RUN cat hello.txt
 
 RUN rm hello.txt
-RUN ls
+RUN ls -l
 
 

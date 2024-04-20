@@ -11,8 +11,11 @@
 /*
 *   Helper consts
 */
-#define ERROR_CODE (-1)
-#define SUCCESS_CODE (0)
+enum POUCH_INTERNAL_STATUS_CODES {
+  SUCCESS_CODE = 0,
+  END_OF_FILE_CODE = 1,
+  ERROR_CODE = -1
+};
 #define LINE_BUFFER_SIZE 1024
 #define POUCHFILE_IMPORT_TOKEN "IMPORT"
 #define POUCHFILE_RUN_TOKEN "RUN"
@@ -63,7 +66,9 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
     int allocated_line_length = LINE_BUFFER_SIZE;
     char current = 0;
     int index = 0;
-    while (read(pouchfile_fd, &current, 1) > 0)
+
+    int status = 0;
+    while ((status = read(pouchfile_fd, &current, 1)) > 0)
     {
         if (current == '\n' || current == NULL)
         {
@@ -81,7 +86,8 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
             char* new_line = (char*)malloc(sizeof(char)*allocated_line_length);
             if (new_line == NULL)
             {
-                goto error;
+                exit_code = ERROR_CODE;
+                goto exit_free;
             }
 
             memmove(new_line, *line, last_line_length);
@@ -89,11 +95,13 @@ static int extract_line(const int pouchfile_fd, char** const line, int* const co
             *line = new_line;
         }
     }
-
-error:
-    exit_code = ERROR_CODE;
+    if (status == 0) {
+  exit_code = END_OF_FILE_CODE;
+    }
+exit_free:
     free(*line);
     *line = NULL;
+
 exit:
     *count = index;
     return exit_code;
@@ -211,7 +219,7 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
         printf(stderr, "Empty import line in Pouchfile\n");
         goto pouchfile_creation_error;
     }
-
+    
     char* const import_token_start = strstr(import_line, POUCHFILE_IMPORT_TOKEN);
     if (import_token_start == NULL)
     {
@@ -220,7 +228,7 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
     }
 
     char* image_name_start = import_token_start + sizeof(POUCHFILE_IMPORT_TOKEN);
-    while (is_whitespace(*image_name_start))
+    while (is_whitespace(*image_name_start) && *image_name_start)
     {
         ++image_name_start;
     }
@@ -235,41 +243,58 @@ static int pouch_pouchfile_parse(const char* const pouchfile_path, struct pouchf
 
     char* run_command_line = NULL;
     int run_command_line_length = 0;
-    do 
-    {
-        if (extract_line(pouchfile_fd, &run_command_line, &run_command_line_length) == ERROR_CODE)
+    int extract_line_status = SUCCESS_CODE;
+    while (extract_line_status == SUCCESS_CODE) {
+            printf(stderr, "Reading next line of run\n");
+        if ((extract_line_status = extract_line(pouchfile_fd, &run_command_line, &run_command_line_length)) != SUCCESS_CODE)
         {
-            printf(stderr, "Failed to extract run line from Pouchfile\n");
-            goto pouch_commands_error;
+            if (extract_line_status == ERROR_CODE) {
+              printf(stderr, "Failed to extract run line from Pouchfile\n");
+              exit_code = ERROR_CODE;
+              goto pouch_commands_error;
+            }
+            if (extract_line_status == END_OF_FILE_CODE) {
+              break;
+            }
         }
+    printf(stderr, "Run command %d,%s", run_command_line_length, run_command_line);
 
         if (run_command_line_length == 0)
         {
-            free(run_command_line);
-            goto cleanup;
+          goto skip_line;
         }
         
         char* const run_token_start = strstr(run_command_line, POUCHFILE_RUN_TOKEN);
         if (run_token_start == NULL)
         {
             printf(stderr, "Failed to find run directive in first line of Pouchfile\n");
+            exit_code = ERROR_CODE;
             goto pouch_commands_add_error;
         }
 
         char* run_command_start = run_token_start + sizeof(POUCHFILE_RUN_TOKEN);
-        while (is_whitespace(*run_command_start))
+        while (is_whitespace(*run_command_start) && *image_name_start)
         {
             ++run_command_start;
         }
 
-        if (pouchfile_add_command(*pouchfile, run_command_start) == ERROR_CODE)
-        {
+        if (*image_name_start == '\0') {
+            printf(stderr, "Failed to find run argument in first line of Pouchfile\n");
+            exit_code = ERROR_CODE;
             goto pouch_commands_error;
         }
 
-        free(run_command_line);
-    } while (run_command_line_length > 0);
-    
+        if (pouchfile_add_command(*pouchfile, run_command_start) == ERROR_CODE)
+        {
+            exit_code = ERROR_CODE;
+            goto pouch_commands_error;
+        }
+
+      skip_line:
+          free(run_command_line);
+    }
+  run_command_line = NULL;
+
 pouch_commands_add_error:
     free(run_command_line);
 pouch_commands_error:
@@ -277,8 +302,6 @@ pouch_commands_error:
 pouchfile_creation_error:
     free(import_line);
 image_line_error:
-    exit_code = ERROR_CODE;
-cleanup:
     close(pouchfile_fd);
     return exit_code;
 }

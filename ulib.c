@@ -130,7 +130,7 @@ char *strstr(char *src, char *needle) {
 
   for (i = 0; i < src_len; i++) {
     if (0 == strncmp(src, needle, needle_size)) {
-      return src + needle_size;
+      return src;
     }
     src++;
   }

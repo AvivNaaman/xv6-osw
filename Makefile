@@ -236,7 +236,14 @@ UPROGS=\
     _ctrl_grp\
     _demo_pid_ns\
     _demo_mount_ns\
-    $(UPROGS_TESTS)
+
+
+TEST_ASSETS=
+
+ifeq ($(TEST), 1)
+    UPROGS += $(UPROGS_TESTS)
+	TEST_ASSETS += tests/pouchfiles/Valid1.Pouchfile
+endif
 
 INTERNAL_DEV=\
 	internal_fs_a\
@@ -248,7 +255,7 @@ internal_fs_%: mkfs
 	./mkfs $@ 1
 
 fs.img: mkfs README $(INTERNAL_DEV)  $(UPROGS) _pouch # $(UPROGS)
-	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV)
+	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS)
 
 -include *.d
 
