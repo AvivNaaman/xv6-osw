@@ -235,7 +235,7 @@ UPROGS=\
     _pouch\
     _ctrl_grp\
     _demo_pid_ns\
-    _demo_mount_ns\
+    _demo_mount_ns
 
 
 TEST_ASSETS=
@@ -248,7 +248,7 @@ endif
 INTERNAL_DEV=\
 	internal_fs_a\
 	internal_fs_b\
-	internal_fs_c\
+	internal_fs_c
 
 internal_fs_%: mkfs
 	dd if=/dev/zero of=$@ count=80
