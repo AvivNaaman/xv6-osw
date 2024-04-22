@@ -10,18 +10,18 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    steps:
-      run: apt-get update && apt-get install -y expect qemu-system-x86
 
     steps:
     - uses: actions/checkout@v3
+    - name: Prepare environment
+      run: sudo apt-get install -y expect qemu-system-x86
 
-    - name: make clean
+    - name: Cleanup
       run: make clean
 
-    - name: Install dependencies
-      run: make
+    - name: Build
+      run: make TEST=1
 
-    - name: Run check
+    - name: Test
       run: ./runtests.exp mylog
 
