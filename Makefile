@@ -266,7 +266,7 @@ clean: windows_debugging_clean
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit vectortests \
+	.gdbinit _vectortests \
 	$(UPROGS) \
 	$(INTERNAL_DEV)
 
@@ -394,5 +394,5 @@ run-vector-tests:
 	$(CC) $(CLAGS) -DUNITTESTS=1 \
 		kvector.h kvector.c tests/host/unittests.h tests/host/kvectortest.c \
 		-std=gnu99 \
-		-o vectortests
-	./vectortests
+		-o _vectortests
+	./_vectortests
