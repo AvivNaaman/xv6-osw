@@ -132,7 +132,7 @@ static int pouchfile_init(struct pouchfile** const pouchfile,
   }
 
   *pouchfile = (struct pouchfile*)malloc(sizeof(struct pouchfile));
-  if (pouchfile == NULL) {
+  if (*pouchfile == NULL) {
     printf(stderr, "Pouchfile struct alloc failed!\n");
     return ERROR_CODE;
   }
