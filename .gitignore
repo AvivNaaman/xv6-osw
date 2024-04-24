@@ -24,3 +24,4 @@ cppcheck.xml
 required_changes.txt
 windows-debugging/
 *.log
+.idea/
