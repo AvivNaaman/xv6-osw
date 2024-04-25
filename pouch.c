@@ -21,8 +21,8 @@ enum POUCH_INTERNAL_STATUS_CODES {
 #define POUCHFILE_RUN_TOKEN "RUN"
 
 /*
-* Command line options
-*/
+ * Command line options
+ */
 #define POUCH_CMD_ARG_IMAGES "images"
 #define POUCH_CMD_ARG_BUILD "build"
 
@@ -846,40 +846,48 @@ static int print_help_inside_cnt() {
 }
 
 void print_pouch_build_help() {
-    printf(stderr,"       pouch build [--file filename=Pouchfile] [--tag Tag=default]\n");
-    printf(stderr,"          : build a new pouch image using the specified parameters\n");
-    printf(stderr,"          - {--file} : The pouch file name to use for building the container.\n");
-    printf(stderr,"          - {--tag} : The tag to use for the output image\n");
+  printf(
+      stderr,
+      "       pouch build [--file filename=Pouchfile] [--tag Tag=default]\n");
+  printf(
+      stderr,
+      "          : build a new pouch image using the specified parameters\n");
+  printf(stderr,
+         "          - {--file} : The pouch file name to use for building the "
+         "container.\n");
+  printf(stderr, "          - {--tag} : The tag to use for the output image\n");
 }
 
-void print_help_outside_cnt(){
-    printf(stderr,"\nPouch commands outside containers:\n");
-    printf(stderr,"       pouch start {name}\n");
-    printf(stderr,"          : starts a new container\n");
-    printf(stderr,"          - {name} : container name\n");
-    printf(stderr,"       pouch connect {name}\n");
-    printf(stderr,"          : connect already started container\n");
-    printf(stderr,"          - {name} : container name\n");
-    printf(stderr,"       pouch destroy {name}\n");
-    printf(stderr,"          : destroy a container\n");
-    printf(stderr,"          - {name} : container name\n");
-    printf(stderr,"       pouch info {name}\n");
-    printf(stderr,"          : query information about a container\n");
-    printf(stderr,"          - {name} : container name\n");
-    printf(stderr,"       pouch list all\n");
-    printf(stderr,"          : displays state of all created containers\n");
-    printf(stderr,"      \ncontainers cgroups:\n");
-    printf(stderr,"       pouch cgroup {cname} {state-object} [value]\n");
-    printf(stderr,"          : limit given cgroup state-object\n");
-    printf(stderr,"          - {name} : container name\n");
-    printf(stderr,"          - {state-object} : cgroups state-object. Refer spec.\n");
-    printf(stderr,"          - [value] : argument for the state-object, multiple values delimited by ','\n");
-    printf(stderr,"      \npouch images:\n");
-    printf(stderr,"       pouch images\n");
-    printf(stderr,"          : list pouch images in the system.\n");
-    print_pouch_build_help();
+void print_help_outside_cnt() {
+  printf(stderr, "\nPouch commands outside containers:\n");
+  printf(stderr, "       pouch start {name}\n");
+  printf(stderr, "          : starts a new container\n");
+  printf(stderr, "          - {name} : container name\n");
+  printf(stderr, "       pouch connect {name}\n");
+  printf(stderr, "          : connect already started container\n");
+  printf(stderr, "          - {name} : container name\n");
+  printf(stderr, "       pouch destroy {name}\n");
+  printf(stderr, "          : destroy a container\n");
+  printf(stderr, "          - {name} : container name\n");
+  printf(stderr, "       pouch info {name}\n");
+  printf(stderr, "          : query information about a container\n");
+  printf(stderr, "          - {name} : container name\n");
+  printf(stderr, "       pouch list all\n");
+  printf(stderr, "          : displays state of all created containers\n");
+  printf(stderr, "      \ncontainers cgroups:\n");
+  printf(stderr, "       pouch cgroup {cname} {state-object} [value]\n");
+  printf(stderr, "          : limit given cgroup state-object\n");
+  printf(stderr, "          - {name} : container name\n");
+  printf(stderr,
+         "          - {state-object} : cgroups state-object. Refer spec.\n");
+  printf(stderr,
+         "          - [value] : argument for the state-object, multiple values "
+         "delimited by ','\n");
+  printf(stderr, "      \npouch images:\n");
+  printf(stderr, "       pouch images\n");
+  printf(stderr, "          : list pouch images in the system.\n");
+  print_pouch_build_help();
 }
-
 
 static int create_pouch_cgroup(char* cg_cname, char* cname) {
   if (mkdir(cg_cname) != 0) {
@@ -983,7 +991,7 @@ static int pouch_build(char* file_name, char* tag) {
     printf(stderr, "Error parsing Pouchfile %s\n", file_name);
     return ERROR_CODE;
   }
-  // TODO: Implement image construction!
+  // Future: Implement image construction!
   (void)pouchfile;
 
   pouchfile_destroy(&pouchfile);
@@ -1010,7 +1018,8 @@ int main(int argc, char* argv[]) {
     }
     strcpy(container_name, argv[2]);
   } else if (argc == 2) {
-    if (strcmp(argv[1], POUCH_CMD_ARG_IMAGES) != 0 && strcmp(argv[1], POUCH_CMD_ARG_BUILD) != 0) {
+    if (strcmp(argv[1], POUCH_CMD_ARG_IMAGES) != 0 &&
+        strcmp(argv[1], POUCH_CMD_ARG_BUILD) != 0) {
       if (ppid == 1 && get_connected_cname(container_name) < 0) {
         print_help_inside_cnt();
         exit(1);
@@ -1105,7 +1114,8 @@ int main(int argc, char* argv[]) {
               goto pouch_build_args_error;
             }
             if (pouch_file_name) {
-              printf(stderr, "Error: Specified more than one --file argument.\n");
+              printf(stderr,
+                     "Error: Specified more than one --file argument.\n");
               goto pouch_build_args_error;
             }
             pouch_file_name = *(++options);
@@ -1115,7 +1125,8 @@ int main(int argc, char* argv[]) {
               goto pouch_build_args_error;
             }
             if (image_tag) {
-              printf(stderr, "Error: Specified more than one --tag argument.\n");
+              printf(stderr,
+                     "Error: Specified more than one --tag argument.\n");
               goto pouch_build_args_error;
             }
             image_tag = *(++options);
@@ -1129,10 +1140,10 @@ int main(int argc, char* argv[]) {
           goto error_exit;
         }
         goto ok_exit;
-        pouch_build_args_error:
-          printf(stderr, "\n");
-          print_pouch_build_help();
-          goto error_exit;
+      pouch_build_args_error:
+        printf(stderr, "\n");
+        print_pouch_build_help();
+        goto error_exit;
       } else if (pouch_cmd(container_name, image_name, pouch_file, cmd) < 0) {
         printf(1, "Pouch: operation failed.\n");
         goto error_exit;

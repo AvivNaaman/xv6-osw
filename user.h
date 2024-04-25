@@ -50,7 +50,7 @@ char* strchr(const char*, char c);
 int strcmp(const char*, const char*);
 int strncmp(const char*, const char*, int);
 char* strstr(char* src, char* needle);
-char* strtok_r(char *str, char* const delim, char** saveptr);
+char* strtok_r(char* str, char* const delim, char** saveptr);
 
 int printf(int, const char*, ...);
 char* gets(char*, int max);
