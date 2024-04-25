@@ -61,7 +61,7 @@ proc destroy_container {argv id expect_str} {
     expect "$expect_str"
 }
 
-proc assert_on_exit_status {} {
+proc assert_on_exit_status {{code 0}} {
     expect {
         "$ "
     }
@@ -74,7 +74,7 @@ proc assert_on_exit_status {} {
     expect -re "\\n(\\d+)" {
         set result $expect_out(1,string)
     }
-    if { $result != 0 } {
+    if { $result != $code } {
         puts "TEST HAS FAILED exit = $result" ; exit 1;
     }
     expect {
@@ -679,38 +679,47 @@ proc test_pouch_build_invalid_args {argv} {
     send "pouch build add\n"
     expect "Error: Unexpected argument add!"
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --abb b\n"
     expect "Error: Unexpected argument --abb!"
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --tag\n"
     log_file -noappend [lindex $argv 0]
     expect "Error: Expected tag name after --tag"
+    assert_on_exit_status 1
 
     send "pouch build --file a --tag\n"
     expect "Error: Expected tag name after --tag"
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --file --tag jkjk\n"
     expect "Error: Unexpected argument jkjk!"
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --file\n"
     expect "Error: Expected file name after --file"
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --file a --file b\n"
     expect "Error: Specified more than one --file argument."
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --file a --tag b --file b\n"
     expect "Error: Specified more than one --file argument."
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 
     send "pouch build --tag a --file b --tag b\n"
     expect "Error: Specified more than one --tag argument."
     log_file -noappend [lindex $argv 0]
+    assert_on_exit_status 1
 }
 
 # - pouch build image command line test, valid arguments
@@ -755,7 +764,27 @@ proc test_pouch_build_valid_args {argv} {
 }
 
 proc test_pouch_build_file_parsing {argv} {
+    # iterate over Valid1.Pouchfile, Valid2.Pouchfile, build and assert_on_exit_status
+    set timeout 3
+
+    set valid_pouchfiles [list Valid1.Pouchfile Valid2.Pouchfile]
+    foreach elem $valid_pouchfiles {
+        send "pouch build --file $elem\n"
+        assert_on_exit_status
+    }
     
+    set valid_syntax_pouchfiles [list ValidSyntax1.Pouchfile ValidSyntax2.Pouchfile]
+    foreach elem $valid_syntax_pouchfiles {
+        send "pouch build --file $elem\n"
+        # This would need to be modified once build is implemnted properly.
+        assert_on_exit_status 
+    }
+
+    set invalid_syntax_pouchfiles [list Invalid1.Pouchfile Invalid2.Pouchfile Invalid3.Pouchfile Invalid4.Pouchfile Invalid5.Pouchfile Invalid6.Pouchfile Invalid7.Pouchfile Invalid8.Pouchfile Invalid9.Pouchfile]
+    foreach elem $invalid_syntax_pouchfiles {
+        send "pouch build --file $elem\n"
+        assert_on_exit_status 1
+    }
 }
 
 #-------------------------------------------------------------------------
