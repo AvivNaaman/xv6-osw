@@ -253,7 +253,7 @@ INTERNAL_DEV=\
 
 internal_fs_%: mkfs
 	dd if=/dev/zero of=$@ count=80
-	./mkfs $@ 1
+	./mkfs $@ 1 images/$@/
 
 fs.img: mkfs README $(INTERNAL_DEV)  $(UPROGS) _pouch # $(UPROGS)
 	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS)

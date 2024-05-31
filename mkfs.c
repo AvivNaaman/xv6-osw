@@ -1,4 +1,7 @@
+#define _GNU_SOURCE 
+
 #include <assert.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,10 +9,12 @@
 #include <unistd.h>
 
 #define stat xv6_stat  // avoid clash with host struct stat
+#define dirent xv6_dirent
 #include "fs.h"
 #include "param.h"
 #include "stat.h"
 #include "types.h"
+#undef dirent
 
 #ifndef static_assert
 #define static_assert(a, b) \
@@ -64,14 +69,90 @@ uint xint(uint x) {
 }
 
 void printusageexit(void) {
-  fprintf(stderr, "Usage: mkfs fs.img <is_internal (0/1)> files...\n");
+  fprintf(stderr, "Usage: (fs img)   mkfs fs.img 0 files...\n");
+  fprintf(stderr, "       (internal) mkfs fs.img 1 oci_image\n");
   exit(1);
+}
+
+char** extract_oci_image_files(const char* oci_image_dir) {
+  char** files = NULL;
+  int nfiles = 0;
+  char* tarball_of_layer = NULL;
+  // Without dealing with json, we have to go to <oci_image_dir>/blobs/sha256
+  // and check out what files are there - which of them are tarballs (`tar tf <file>`)
+  char* blobs_sha256 = NULL;
+  asprintf(&blobs_sha256, "%s/blobs/sha256", oci_image_dir);
+  DIR* dir = opendir(blobs_sha256);
+  if (!dir) {
+    fprintf(stderr, "Failed to open directory %s\n", blobs_sha256);
+    return NULL;
+  }
+  for (struct dirent* entry = readdir(dir); entry; entry = readdir(dir)) {
+    if (entry->d_type == DT_REG) {
+      char* full_path = NULL;
+      asprintf(&full_path, "%s/%s", blobs_sha256, entry->d_name);
+      char* tar_tf_file_cmd = NULL;
+      asprintf(&tar_tf_file_cmd, "tar tf %s", full_path);
+      if (system(tar_tf_file_cmd) == 0) {
+        // > 1 tarball detected!
+        if (tarball_of_layer) {
+          fprintf(stderr, "Multiple tarballs in the directory are not supported.\n");
+          return NULL;
+        }
+        // okay, we found a tarball
+        tarball_of_layer = full_path;
+      }
+      free(full_path);
+    }
+  }
+  closedir(dir);
+  dir = NULL;
+
+  // extract the tarball to a temporary directory
+  char* temp_dir = NULL;
+  if (tarball_of_layer) {
+    asprintf(&temp_dir, "%s/temp", oci_image_dir);
+    char* mkdir_cmd = NULL;
+    asprintf(&mkdir_cmd, "mkdir -p %s", temp_dir);
+    if (system(mkdir_cmd) != 0) {
+      perror("Failed to create temporary directory");
+      return NULL;
+    }
+    char* tar_xf_cmd = NULL;
+    asprintf(&tar_xf_cmd, "tar xf %s -C %s", tarball_of_layer, temp_dir);
+    if (system(tar_xf_cmd) != 0) {
+      perror("Failed to extract tarball");
+      return NULL;
+    }
+    free(tarball_of_layer);
+    free(temp_dir);
+  }
+  // return the list of files in the temporary directory where we extracted the tarball.
+  DIR* temp_dir_o = opendir(temp_dir);
+  if (!temp_dir_o) {
+    perror("Failed to open temporary directory");
+    return NULL;
+  }
+  for (struct dirent* entry = readdir(temp_dir_o); entry; entry = readdir(temp_dir_o)) {
+    if (entry->d_type == DT_REG) {
+      char* full_path = NULL;
+      asprintf(&full_path, "%s/%s", temp_dir, entry->d_name);
+      files = realloc(files, (nfiles + 1) * sizeof(char*));
+      files[nfiles++] = full_path;
+    }
+  }
+
+  free(blobs_sha256);
+  free(tarball_of_layer);
+  closedir(temp_dir_o);
+  rmdir(temp_dir);
+  return files;
 }
 
 int main(int argc, char *argv[]) {
   int i, cc, fd;
   uint rootino, inum, off;
-  struct dirent de;
+  struct xv6_dirent de;
   char buf[BSIZE];
   struct dinode din;
 
@@ -85,13 +166,18 @@ int main(int argc, char *argv[]) {
     printusageexit();
   }
 
-  int is_internal = argv[2][0] == '1';
+  bool is_internal = argv[2][0] == '1';
+
+  if (is_internal && argc != 4) {
+    fprintf(stderr, "Internal file systems require exactly one OCI image directory as source.\n");
+    printusageexit();
+  }
 
   int fssize = is_internal ? INT_FSSIZE : FSSIZE;
   int nbitmap = fssize / (BSIZE * 8) + 1;
 
   assert((BSIZE % sizeof(struct dinode)) == 0);
-  assert((BSIZE % sizeof(struct dirent)) == 0);
+  assert((BSIZE % sizeof(struct xv6_dirent)) == 0);
 
   fsfd = open(argv[1], O_RDWR | O_CREAT | O_TRUNC, 0666);
   if (fsfd < 0) {
@@ -136,6 +222,18 @@ int main(int argc, char *argv[]) {
   de.inum = xshort(rootino);
   strcpy(de.name, "..");
   iappend(rootino, &de, sizeof(de));
+
+  char** files = NULL;
+  if (is_internal) {
+    files = extract_oci_image_files(argv[3]);
+    if (!files) {
+      perror("Failed to extract OCI image files.\n");
+      return 1;
+    }
+  }
+  else {
+    files = argv + 3;
+  }
 
   for (i = 3; i < argc; i++) {
     const char *full_path = argv[i];
