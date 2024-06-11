@@ -102,7 +102,6 @@ char** extract_oci_image_files(const char* oci_image_dir) {
         // okay, we found a tarball
         tarball_of_layer = full_path;
       }
-      free(full_path);
     }
   }
   closedir(dir);
