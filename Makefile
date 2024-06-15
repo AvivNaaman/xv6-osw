@@ -246,17 +246,19 @@ ifeq ($(TEST_POUCHFILES), 1)
 endif
 
 INTERNAL_DEV=\
-	internal_fs_a\
+	internal_fs_a #\
 	internal_fs_b\
 	internal_fs_c
 
+INTERNAL_DEV_IMGS=$(INTERNAL_DEV:=.img)
+
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
 internal_fs_%: mkfs
-	IMAGE_MANIFEST=$(cat images/img_$@/index.json | jq -r ".manifests[0].digest" | sed -e 's/:/\//g')
-	./mkfs $@ 1
+	./images/oci_image_extractor.sh $(CURDIR)/$@ $(CURDIR)/images/img_$@
+	./mkfs $@.img 1 $(CURDIR)/$@
 
-fs.img: mkfs README $(INTERNAL_DEV)  $(UPROGS) _pouch # $(UPROGS)
-	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS)
+fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
+	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV_IMGS) $(TEST_ASSETS)
 
 -include *.d
 
@@ -264,7 +266,7 @@ fs.img: mkfs README $(INTERNAL_DEV)  $(UPROGS) _pouch # $(UPROGS)
 #	rm -rf mkfs bootblock.o fs.img xv6.img pouch.asm pouch.d pouch.o pouch.sym
 
 clean: windows_debugging_clean
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+	rm -rf *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
 	.gdbinit vectortests \
