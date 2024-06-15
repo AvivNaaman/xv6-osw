@@ -250,7 +250,9 @@ INTERNAL_DEV=\
 	internal_fs_b\
 	internal_fs_c
 
+# internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
 internal_fs_%: mkfs
+	IMAGE_MANIFEST=$(cat images/img_$@/index.json | jq -r ".manifests[0].digest" | sed -e 's/:/\//g')
 	./mkfs $@ 1
 
 fs.img: mkfs README $(INTERNAL_DEV)  $(UPROGS) _pouch # $(UPROGS)
