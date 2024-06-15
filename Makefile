@@ -255,7 +255,7 @@ INTERNAL_DEV_IMGS=$(INTERNAL_DEV:=.img)
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
 internal_fs_%: mkfs
 	./images/oci_image_extractor.sh $(CURDIR)/$@ $(CURDIR)/images/img_$@
-	./mkfs $@.img 1 $(CURDIR)/$@
+	./mkfs $@.img 1 $$(find $(CURDIR)/$@ -type f)
 
 fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
 	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV_IMGS) $(TEST_ASSETS)
