@@ -252,13 +252,19 @@ INTERNAL_DEV=\
 
 INTERNAL_DEV_IMGS=$(INTERNAL_DEV:=.img)
 
+INTERNAL_DEV_IMGS_METADATA_FILES=all_images $(INTERNAL_DEV:=.attr)
+
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
-internal_fs_%: mkfs
+internal_fs_%: mkfs 
+	mkdir -p $(CURDIR)/images_metadata
 	./images/oci_image_extractor.sh $(CURDIR)/$@ $(CURDIR)/images/img_$@
 	./mkfs $@.img 1 $$(find $(CURDIR)/$@ -type f)
+	echo $@ >> $(CURDIR)/images_metadata/all_images
+	cd $(CURDIR)/$@ && find . -type f -exec ls -la {} \; > $(CURDIR)/images_metadata/img_$@.attr
+	
 
 fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
-	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV_IMGS) $(TEST_ASSETS)
+	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV_IMGS) $(TEST_ASSETS) $$(find $(CURDIR)/images_metadata -type f)
 
 -include *.d
 
@@ -271,7 +277,7 @@ clean: windows_debugging_clean
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
 	.gdbinit vectortests \
 	$(UPROGS) \
-	$(INTERNAL_DEV)
+	$(INTERNAL_DEV) all_images
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)
