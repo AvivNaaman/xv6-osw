@@ -250,17 +250,20 @@ INTERNAL_DEV=\
 	internal_fs_b\
 	internal_fs_c
 
+images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile
+	./images/build_images.sh
+
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
-internal_fs_%: mkfs 
-	mkdir -p $(CURDIR)/images_metadata
+internal_fs_%: mkfs images/img_internal_fs_%
+	mkdir -p $(CURDIR)/images/metadata
 	./images/oci_image_extractor.sh $(CURDIR)/images/extracted/$@ $(CURDIR)/images/img_$@
-	echo $@ >> $(CURDIR)/images_metadata/all_images
-	cd $(CURDIR)/images/extracted/$@ && find . -type f -exec ls -la {} \; > $(CURDIR)/images_metadata/img_$@.attr
-	./mkfs $@ 1 $$(find $(CURDIR)/images/extracted/$@ -type f) $(CURDIR)/images_metadata/img_$@.attr
+	echo $@ >> $(CURDIR)/images/metadata/all_images
+	cd $(CURDIR)/images/extracted/$@ && find . -type f -exec ls -la {} \; > $(CURDIR)/images/metadata/img_$@.attr
+	./mkfs $@ 1 $$(find $(CURDIR)/images/extracted/$@ -type f) $(CURDIR)/images/metadata/img_$@.attr
 	
 
 fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
-	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images_metadata/all_images
+	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
 
 -include *.d
 
@@ -273,7 +276,7 @@ clean: windows_debugging_clean
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
 	.gdbinit vectortests \
 	$(UPROGS) \
-	$(INTERNAL_DEV) images_metadata images/extracted
+	$(INTERNAL_DEV) images/metadata images/extracted
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)

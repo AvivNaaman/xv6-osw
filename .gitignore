@@ -26,3 +26,5 @@ vectortests
 windows-debugging/
 *.log
 .idea/
+images/extracted/
+images/metadata/
