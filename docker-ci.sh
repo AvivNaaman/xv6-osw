@@ -52,6 +52,11 @@ elif [ "$1" == "build" ]; then
     exit 0
 fi
 
+#### Generate OCI images locally
+make clean_oci
+make build_oci
+
+
 #########################################################################
 # test the docker image using the run-ci.sh script or intaractive mode
 
@@ -59,8 +64,8 @@ fi
 if [ "$1" == "test" ]; then
     # Run tests, dind required for building test oci images!
     docker run --mount type=bind,source="$(pwd)",target=/home/$(whoami)/xv6 \
-                --rm $IMAGE_NAME \
-                --privileged \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                --rm --privileged  $IMAGE_NAME \
                 /home/$(whoami)/xv6/run-ci.sh
 elif [ "$1" == "interactive" ]; then
     # Run interactive command
@@ -70,7 +75,8 @@ elif [ "$1" == "interactive" ]; then
     fi
     docker run -it \
         --mount type=bind,source="$(pwd)",target=/home/$(whoami)/xv6 \
-        --rm $IMAGE_NAME $3
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        --rm --privileged $IMAGE_NAME $3
 else
     echo "Invalid command: $1"
     exit 1

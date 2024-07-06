@@ -20,7 +20,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
     bridge-utils \
     virt-manager \
     expect \
-    docker.io \ 
     jq
 
 # Download and extract Cppcheck

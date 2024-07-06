@@ -255,8 +255,14 @@ images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile
 	docker build -t xv6_internal_fs_$* -f images/build/img_internal_fs_$*.Dockerfile images/build
 	skopeo copy docker-daemon:xv6_internal_fs_$*:latest oci:images/img_internal_fs_$*
 
+
+# This is a dummy target to rebuild the OCI images for the internal fs.
+# You should run this target if you have made changes to the internal fs build.
+OCI_IMAGES = $(patsubst %, images/img_%, $(INTERNAL_DEV))
+build_oci: $(OCI_IMAGES)
+
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
-internal_fs_%: mkfs images/img_internal_fs_%
+internal_fs_%: mkfs
 	mkdir -p $(CURDIR)/images/metadata
 	./images/oci_image_extractor.sh $(CURDIR)/images/extracted/$@ $(CURDIR)/images/img_$@
 	echo $@ >> $(CURDIR)/images/metadata/all_images
@@ -279,7 +285,10 @@ clean: windows_debugging_clean
 		.gdbinit vectortests \
 		$(UPROGS) \
 		$(INTERNAL_DEV) \
-		images/metadata images/extracted images/img_internal_fs_*
+		images/metadata images/extracted
+
+clean_oci:
+	rm -rf images/img_internal_fs_*
 	docker rmi -f $(shell docker images -q -f "reference=xv6_internal_fs_*") > /dev/null 2>&1 || true
 
 # make a printout

@@ -41,7 +41,6 @@ RUN if [ "$BUILD_LINTING_TOOLS" = "true" ]; then \
     libxml2-dev \
     libxmlsec1-dev \
     libffi-de \
-    docker.io \
     jq; \
     fi
 # libvirt-clients causes an error when installing on Ubuntu 16.04
