@@ -733,22 +733,6 @@ proc mounttest {argv} {
     assert_on_exit_status
 }
 
-# - xv6 mntns test with ls
-# @argv - file name for logging
-proc mounttest_with_ls {argv} {
-
-    send "mkdir test_dir_mount_test\n"
-    assert_on_exit_status
-    send "mount internal_fs_a test_dir_mount_test\n"
-    assert_on_exit_status
-    send "ls test_dir_mount_test\n"
-    assert_on_exit_status
-    send "umount test_dir_mount_test\n"
-    assert_on_exit_status
-    send "rm test_dir_mount_test\n"
-    assert_on_exit_status
-}
-
 # - pouch build image command line test, invalid arguments
 # @argv - file name for logging
 proc test_pouch_build_invalid_args {argv} {
@@ -869,6 +853,21 @@ proc test_pouch_build_file_parsing {argv} {
     }
 }
 
+proc test_internal_images {argv} {
+    # For each one of internal_fs_[a,b,c], mount it, check if it is mounted, unmount it, check if it is unmounted.
+    set timeout 3
+    set internal_images [list a b c]
+    foreach elem $internal_images {
+        send "mkdir /m$elem\n"
+        assert_on_exit_status
+        send "mount internal_fs_$elem /m$elem\n"
+        assert_on_exit_status
+        send "ls /m$elem\n"
+        send "umount /m$elem\n"
+        assert_on_exit_status
+    }
+}
+
 #-------------------------------------------------------------------------
 #-MAIN--------------------------------------------------------------------
 #-------------------------------------------------------------------------
@@ -931,7 +930,7 @@ set running [test_pouch_build_file_parsing $argv]
 
 set running [pidns_tests $argv]
 set running [mounttest $argv]
-set running [mounttest_with_ls $argv]
+set running [test_internal_images $argv]
 # run last, prints "ALL TESTS PASSED"
 set running [usertests $argv]
 
