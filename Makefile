@@ -246,12 +246,14 @@ ifeq ($(TEST_POUCHFILES), 1)
 endif
 
 INTERNAL_DEV=\
-	internal_fs_a #\
-	internal_fs_b\
+	internal_fs_a \
+	internal_fs_b \
 	internal_fs_c
 
+# Docker build & skopeo copy, create OCI images.
 images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile
-	./images/build_images.sh
+	docker build -t xv6_internal_fs_$* -f images/build/img_internal_fs_$*.Dockerfile images/build
+	skopeo copy docker-daemon:xv6_internal_fs_$*:latest oci:images/img_internal_fs_$*
 
 # internal_fs_%_img is a direcotry with the relevant OCI image to use for the internal fs build.
 internal_fs_%: mkfs images/img_internal_fs_%
@@ -272,11 +274,13 @@ fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
 
 clean: windows_debugging_clean
 	rm -rf *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*.o *.d *.asm *.sym vectors.S bootblock entryother \
-	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit vectortests \
-	$(UPROGS) \
-	$(INTERNAL_DEV) images/metadata images/extracted
+		*.o *.d *.asm *.sym vectors.S bootblock entryother \
+		initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
+		.gdbinit vectortests \
+		$(UPROGS) \
+		$(INTERNAL_DEV) \
+		images/metadata images/extracted images/img_internal_fs_*
+	docker rmi -f $(shell docker images -q -f "reference=xv6_internal_fs_*") > /dev/null 2>&1 || true
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)
