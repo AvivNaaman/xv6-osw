@@ -458,29 +458,37 @@ static int pouch_print_images() {
     return -1;
   }
 
-  printf(1, "Pouch images available:\n");
-
-  if (st.type == T_DIR) {
-    strcpy(buf, IMAGE_DIR);
-    p = buf + strlen(buf);
-    *p++ = '/';
-    while (read(fd, &de, sizeof(de)) == sizeof(de)) {
-      if (de.inum == 0) continue;
-      memmove(p, de.name, DIRSIZ);
-      p[DIRSIZ] = 0;
-      if (stat(buf, &st) < 0) {
-        printf(1, "Cannot stat %s\n", buf);
-        continue;
-      }
-      strcpy(dir, fmtname(buf));
-      if (strncmp(dir, ".", 1) != 0) {
-        printf(1, "%s\n", dir);
-      }
-    }
-  } else {
+  bool printed_first = false;
+  if (st.type != T_DIR) {
     printf(stderr, "%s should be a directory\n", IMAGE_DIR);
     return -1;
   }
+
+  strcpy(buf, IMAGE_DIR);
+  p = buf + strlen(buf);
+  *p++ = '/';
+  while (read(fd, &de, sizeof(de)) == sizeof(de)) {
+    if (de.inum == 0) continue;
+    memmove(p, de.name, DIRSIZ);
+    p[DIRSIZ] = 0;
+    if (stat(buf, &st) < 0) {
+      printf(1, "Cannot stat %s\n", buf);
+      continue;
+    }
+    strcpy(dir, fmtname(buf));
+    if (strncmp(dir, ".", 1) != 0) {
+      if (!printed_first) {
+        printf(1, "Pouch images available:\n");
+        printed_first = true;
+      }
+      printf(1, "%s\n", dir);
+    }
+  }
+
+  if (!printed_first) {
+    printf(1, "No images available\n");
+  }
+
   close(fd);
   return 0;
 }
@@ -660,9 +668,9 @@ static int remove_from_pconf(char* ttyname) {
 }
 
 static int read_from_pconf(char* ttyname, char* cname) {
-  char ttyc[] = "tty.cX";
+  char ttyc[] = "/tty.cX";
   int ttyc_fd;
-  ttyc[5] = ttyname[4];
+  ttyc[6] = ttyname[4];
   if ((ttyc_fd = open(ttyc, O_RDWR)) < 0) {
     printf(stderr, "cannot open %s fd\n", ttyc);
     return -1;
@@ -747,7 +755,10 @@ static int read_from_cconf(char* container_name, char* tty_name, int* pid, char*
   char pid_str[sizeof("PPID:") + 10];
   int cont_fd = -1;
 
-  cont_fd = open(container_name, 0);
+  char container_file[CNTNAMESIZE + sizeof("/")];
+  strcpy(container_file, "/");
+  strcat(container_file, container_name);
+  cont_fd = open(container_file, 0);
   if (cont_fd < 0) {
     printf(stderr, "There is no container: %s in a started stage\n",
            container_name);
@@ -853,6 +864,13 @@ static int pouch_fork(char* container_name, char* image_name) {
     exit(1);
   }
 
+  // make sure image exists:
+  if (image_exists(image_name) < 0) {
+    printf(stderr, "Pouch: image %s does not exist\n", image_name);
+    mutex_unlock(&global_mutex);
+    exit(1);
+  }
+
   int cont_fd = open(container_name, 0);
   if (cont_fd < 0) {
     printf(1, "Pouch: %s starting\n", container_name);
@@ -860,13 +878,6 @@ static int pouch_fork(char* container_name, char* image_name) {
   } else {
     mutex_unlock(&global_mutex);
     printf(stderr, "Pouch: %s container is already started\n", container_name);
-    exit(1);
-  }
-
-  // make sure image exists:
-  if (image_exists(image_name) < 0) {
-    printf(stderr, "Pouch: image %s does not exist\n", image_name);
-    mutex_unlock(&global_mutex);
     exit(1);
   }
 
@@ -1203,15 +1214,17 @@ int main(int argc, char* argv[]) {
   }
 
   if (argc >= 4) {
-    if (strlen(argv[3]) > CNTNAMESIZE) {
-      printf(stderr, "Error: Container name too long.\n");
+    int arg_len = strlen(argv[3]);
+    if (arg_len > CNTNAMESIZE || arg_len == 0) {
+      printf(stderr, "Error: Image name invalid, must be 1-%d chars, got %d.\n", CNTNAMESIZE, arg_len);
       exit(1);
     }
     strcpy(image_name, argv[3]);
   }
   if (argc >= 3) {
-    if (strlen(argv[2]) > CNTNAMESIZE) {
-      printf(stderr, "Error: Container name too long.\n");
+    int arg_len = strlen(argv[2]);
+    if (arg_len > CNTNAMESIZE || arg_len == 0) {
+      printf(stderr, "Error: Container name invalid, must be 1-%d chars, got %d.\n", CNTNAMESIZE, arg_len);
       exit(1);
     }
     strcpy(container_name, argv[2]);
@@ -1233,10 +1246,9 @@ int main(int argc, char* argv[]) {
       print_help_outside_cnt();
     exit(0);
   }
-
   // get command type
   if (argc >= 2) {
-    if ((strcmp(argv[1], "start")) == 0) {
+    if ((strcmp(argv[1], "start")) == 0 && argc == 4) {
       cmd = START;
     } else if ((strcmp(argv[1], "connect")) == 0) {
       cmd = CONNECT;
