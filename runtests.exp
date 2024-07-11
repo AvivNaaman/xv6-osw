@@ -656,8 +656,10 @@ proc pouch_disconnect_outside_container_test {argv} {
     expect {
        "Pouch: no container is connected"
     }
-    sleep 2
+    assert_on_exit_status 1
+    sleep 1
     send "pouch disconnect\n"
+    sleep 1
     set timeout 3
     log_file -noappend [lindex $argv 0]
     assert_on_exit_status
@@ -924,6 +926,7 @@ expect "$ "
 
 #uncomment for expect debugging
 #exp_internal 1
+set running [mounttest $argv]
 set running [prepare_pouch_images $argv]
 set running [ioctl_syscall_test $argv]
 # set running [cgroupstests $argv] # ERR
@@ -956,7 +959,6 @@ set running [test_pouch_build_invalid_args $argv]
 set running [test_pouch_build_file_parsing $argv]
 
 set running [pidns_tests $argv]
-set running [mounttest $argv]
 set running [test_internal_images $argv]
 # run last, prints "ALL TESTS PASSED"
 set running [usertests $argv]
