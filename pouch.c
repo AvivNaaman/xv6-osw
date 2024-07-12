@@ -389,7 +389,8 @@ static void prepare_cgroup_cname(const char* container_name, char* cg_cname) {
   strcat(cg_cname, container_name);
 }
 
-static void prepare_image_mount_path(const char *container_name, char* image_mount_point) {
+static void prepare_image_mount_path(const char* container_name,
+                                     char* image_mount_point) {
   struct stat mnt_base_path;
   if (stat(IMAGE_MOUNT_DIR, &mnt_base_path) < 0) {
     if (mkdir(IMAGE_MOUNT_DIR) < 0) {
@@ -555,7 +556,7 @@ static int pouch_cmd(char* container_name, char* image_name, enum p_cmd cmd) {
     if (remove_from_pconf(tty_name) < 0) return -1;
 
     prepare_image_mount_path(container_name, mnt_point);
-    // umount not needed as the container is already destroyed, 
+    // umount not needed as the container is already destroyed,
     // and mount lives only inside the container.
     if (unlink(mnt_point) < 0) {
       return -1;
@@ -751,7 +752,8 @@ static int get_connected_cname(char* cname) {
   return 0;
 }
 
-static int read_from_cconf(char* container_name, char* tty_name, int* pid, char* image_name) {
+static int read_from_cconf(char* container_name, char* tty_name, int* pid,
+                           char* image_name) {
   char pid_str[sizeof("PPID:") + 10];
   int cont_fd = -1;
 
@@ -819,16 +821,15 @@ error:
   return -1;
 }
 
-static int write_to_cconf(char* container_name, char* tty_name, int pid, char* image_name) {
+static int write_to_cconf(char* container_name, char* tty_name, int pid,
+                          char* image_name) {
   int cont_fd = open(container_name, O_CREATE | O_RDWR);
   if (cont_fd < 0) {
     printf(stderr, "cannot open %s\n", container_name);
     return -1;
   }
-  printf(cont_fd, "%s\n%s %d\n%s %s\n%s %s\n", tty_name, 
-    CONFIG_KEY_PPID, pid, 
-    CONFIG_KEY_NAME, container_name, 
-    CONFIG_KEY_IMAGE, image_name);
+  printf(cont_fd, "%s\n%s %d\n%s %s\n%s %s\n", tty_name, CONFIG_KEY_PPID, pid,
+         CONFIG_KEY_NAME, container_name, CONFIG_KEY_IMAGE, image_name);
   close(cont_fd);
   return 0;
 }
@@ -932,21 +933,25 @@ static int pouch_fork(char* container_name, char* image_name) {
       // Prepare image mount point for container
       prepare_image_mount_path(container_name, image_mount_point);
       if (mkdir(image_mount_point) < 0) {
-        printf(stderr, "Pouch: failed to create image mount point at %s!\n", image_mount_point);
+        printf(stderr, "Pouch: failed to create image mount point at %s!\n",
+               image_mount_point);
         mutex_unlock(&global_mutex);
         exit(1);
       }
       image_name_to_path(image_name, image_path);
       if (mount(image_path, image_mount_point, 0) < 0) {
-        printf(stderr, "Pouch: failed to mount image %s at %s!\n", image_name, image_mount_point);
+        printf(stderr, "Pouch: failed to mount image %s at %s!\n", image_name,
+               image_mount_point);
         mutex_unlock(&global_mutex);
         exit(1);
       }
-      
-      // TODO: implement a pivot_root syscall and call it to the image directory,
-      // so / filesystem is actually our image inside the started container.
+
+      // TODO(Future): implement a pivot_root syscall and call it to the image
+      // directory, so / filesystem is actually our image inside the started
+      // container.
       if (chdir(image_mount_point) < 0) {
-        printf(stderr, "Pouch: failed to change directory to %s!\n", image_mount_point);
+        printf(stderr, "Pouch: failed to change directory to %s!\n",
+               image_mount_point);
         mutex_unlock(&global_mutex);
         exit(1);
       }
@@ -1202,7 +1207,7 @@ int main(int argc, char* argv[]) {
   // get parent pid
   int ppid = getppid();
 
-// check if any argument is --help and print help message accordingly:
+  // check if any argument is --help and print help message accordingly:
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--help") == 0) {
       if (ppid == 1)
@@ -1216,7 +1221,8 @@ int main(int argc, char* argv[]) {
   if (argc >= 4) {
     int arg_len = strlen(argv[3]);
     if (arg_len > CNTNAMESIZE || arg_len == 0) {
-      printf(stderr, "Error: Image name invalid, must be 1-%d chars, got %d.\n", CNTNAMESIZE, arg_len);
+      printf(stderr, "Error: Image name invalid, must be 1-%d chars, got %d.\n",
+             CNTNAMESIZE, arg_len);
       exit(1);
     }
     strcpy(image_name, argv[3]);
@@ -1224,7 +1230,9 @@ int main(int argc, char* argv[]) {
   if (argc >= 3) {
     int arg_len = strlen(argv[2]);
     if (arg_len > CNTNAMESIZE || arg_len == 0) {
-      printf(stderr, "Error: Container name invalid, must be 1-%d chars, got %d.\n", CNTNAMESIZE, arg_len);
+      printf(stderr,
+             "Error: Container name invalid, must be 1-%d chars, got %d.\n",
+             CNTNAMESIZE, arg_len);
       exit(1);
     }
     strcpy(container_name, argv[2]);

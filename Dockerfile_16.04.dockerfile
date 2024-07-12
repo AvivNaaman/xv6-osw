@@ -8,11 +8,11 @@ FROM ubuntu:16.04 as base
 # Note: Building with linting enabled significantly increases the build time.
 #       Consider this if time is a constraint.
 ARG BUILD_LINTING_TOOLS
-
+ENV DEBIAN_FRONTEND=noninteractive
 # Update package lists and install dependencies
 RUN if [ "$BUILD_LINTING_TOOLS" = "true" ]; then \
     apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    apt-get install -y \
     g++ \
     make \
     libpcre3-dev \
@@ -109,6 +109,13 @@ RUN  if [ "$BUILD_LINTING_TOOLS" = "true" ]; then \
     make clang-format && \
     cp bin/clang-format /usr/local/bin; \
     fi
+
+# Install cpplint+bashate for the user in a venv, and activate it.
+ENV XV6_VENV=/xv6-venv
+RUN python3 -m venv $XV6_VENV
+ENV PATH=$XV6_VENV/bin:$PATH
+RUN pip install cpplint bashate && \
+    chmod -R 777 $XV6_VENV
 
 # Create a non-root user with the same username,uid,gid
 # as the user running the container

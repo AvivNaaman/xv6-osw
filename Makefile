@@ -251,10 +251,15 @@ INTERNAL_DEV=\
 	internal_fs_c
 
 # Docker build & skopeo copy, create OCI images.
+# Docker daemon must be running and available from this context.
 images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile
 	docker build -t xv6_internal_fs_$* -f images/build/img_internal_fs_$*.Dockerfile images/build
-	skopeo copy docker-daemon:xv6_internal_fs_$*:latest oci:images/img_internal_fs_$*
-
+	mkdir -p images/img_internal_fs_$*
+	docker run --rm --mount type=bind,source="$(CURDIR)",target=/home/$(shell whoami)/xv6 \
+		-w /home/$(shell whoami)/xv6 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		quay.io/skopeo/stable:latest \
+		copy docker-daemon:xv6_internal_fs_$*:latest oci:images/img_internal_fs_$*
 
 # This is a dummy target to rebuild the OCI images for the internal fs.
 # You should run this target if you have made changes to the internal fs build.

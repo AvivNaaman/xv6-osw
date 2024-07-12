@@ -66,11 +66,12 @@ proc remove_pouch_images { argv } {
 # @argv - file name for logging
 # @id - int for specifiyng container name
 # @expect_str - the string to expect
-proc start_container { argv id expect_str {image_name "img_a"} } {
+proc start_container { argv id expect_str {image_name "img_a"} { exit_code 0 } } {
     send "pouch start c$id $image_name\n"
     set timeout 3
     log_file -noappend [lindex $argv 0]
     expect "$expect_str"
+    assert_on_exit_status $exit_code
 }
 
 # - wrapper for pouch connect command
@@ -106,6 +107,7 @@ proc destroy_container {argv id expect_str} {
     set timeout 5
     log_file -noappend [lindex $argv 0]
     expect "$expect_str"
+    assert_on_exit_status
 }
 
 proc assert_on_exit_status {{code 0} {wait_for_last_exit 1}} {
@@ -124,7 +126,7 @@ proc assert_on_exit_status {{code 0} {wait_for_last_exit 1}} {
         set result $expect_out(1,string)
     }
     if { $result != $code } {
-        puts "TEST HAS FAILED exit = $result" ; exit 1;
+        puts "TEST HAS FAILED exit = $result, not $code" ; exit 1;
     }
     expect {
         "$ "
@@ -155,10 +157,8 @@ proc pouch_stress_test {argv} {
     set timeout 3
     for {set x 0} {$x < 10} {incr x} {
         set running [start_container $argv "1" "Pouch: c1 starting" "img_a"]
-        set running [assert_on_exit_status 0 1]
         sleep 0.5
         set running [destroy_container $argv "1" "Pouch: c1 destroyed"]
-        set running [assert_on_exit_status 0 1]
         sleep 0.5
         log_file -noappend [lindex $argv 0]
     }
@@ -524,7 +524,6 @@ proc pouch_destroy_test {argv} {
     expect -re {c1\s+2\s+[0-9]+\s+[0-9]+}
 
     set running [destroy_container $argv "1" "Pouch: c1 destroyed"]
-    assert_on_exit_status
 
     set timeout 3
     send "ls c1\n"
@@ -568,7 +567,7 @@ proc pouch_to_many_cnts_test {argv} {
     # sleep 1
     set running [start_container $argv "3" "Pouch: c3 starting" "img_c"]
     # sleep 1
-    set running [start_container $argv "4" "Pouch: cannot create more containers" "img_a"]
+    set running [start_container $argv "4" "Pouch: cannot create more containers" "img_a" 1]
 
 }
 
@@ -634,7 +633,7 @@ proc pouch_cgroup_already_exists {argv} {
     log_file -noappend [lindex $argv 0]
     assert_on_exit_status
     set timeout 3
-    set running [start_container $argv "5" "cgroup already exists" "img_a"]
+    set running [start_container $argv "5" "cgroup already exists" "img_a" 1]
     log_file -noappend [lindex $argv 0]
     expect "Pouch: Failed to create cgroup with the given name. Consider another container name: c5"
 }
@@ -712,7 +711,6 @@ proc cgroup_io_states_test {argv} {
     set timeout 2
 
     set running [start_container $argv "temp" "Pouch: ctemp starting" "img_a"]
-    assert_on_exit_status
     sleep 1
     send "cat /cgroup/ctemp/io.stat\n"
     expect "1:1 rbytes=0 wbytes=0 rios=0 wios=0"
@@ -734,9 +732,9 @@ proc cgroup_io_states_test {argv} {
        "Console connected"
     }
     set running [destroy_container $argv "temp" "Pouch: ctemp destroyed"]
-    assert_on_exit_status
+    
     set running [start_container $argv "test" "Pouch: ctest starting" "img_a"]
-    assert_on_exit_status
+    
     sleep 1
     send "cat /cgroup/ctest/io.stat\n"
     expect "1:1 rbytes=95 wbytes=106 rios=95 wios=11"
