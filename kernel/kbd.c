@@ -1,8 +1,8 @@
 #include "kbd.h"
 
 #include "defs.h"
-#include "types.h"
-#include "x86.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 
 int kbdgetc(void) {
   static uint shift;

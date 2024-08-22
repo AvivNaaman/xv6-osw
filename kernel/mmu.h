@@ -53,7 +53,7 @@
 #define NSEGS 6
 
 #ifndef __ASSEMBLER__
-#include "types.h"
+#include "../common/types.h"
 
 // Segment Descriptor
 struct segdesc {

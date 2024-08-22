@@ -6,13 +6,13 @@
 #include "mmu.h"
 #include "namespace.h"
 #include "obj_log.h"
-#include "param.h"
+#include "../common/param.h"
 #include "pid_ns.h"
 #include "procfs.h"
 #include "spinlock.h"
-#include "types.h"
-#include "wstatus.h"
-#include "x86.h"
+#include "../common/types.h"
+#include "../common/wstatus.h"
+#include "../common/x86.h"
 
 struct {
   struct spinlock lock;

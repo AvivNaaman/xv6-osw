@@ -2,11 +2,11 @@
 
 #include "defs.h"
 #include "device.h"
-#include "fcntl.h"
-#include "fs.h"
+#include "../common/fcntl.h"
+#include "../common/fs.h"
 #include "mount_ns.h"
 #include "namespace.h"
-#include "param.h"
+#include "../common/param.h"
 #include "vfs_file.h"
 
 // Static to save space in the stack.

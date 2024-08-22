@@ -2,7 +2,7 @@
 #define XV6_OBJ_FILE_H
 
 #include "obj_fs.h"
-#include "param.h"
+#include "../common/param.h"
 #include "sleeplock.h"
 #include "vfs_file.h"
 

@@ -1,5 +1,5 @@
-#include "stat.h"
-#include "types.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 #include "user.h"
 
 static int putc(int fd, char c) { return write(fd, &c, 1); }

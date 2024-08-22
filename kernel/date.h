@@ -1,7 +1,7 @@
 #ifndef XV6_DATE_H
 #define XV6_DATE_H
 
-#include "types.h"
+#include "../common/types.h"
 
 struct rtcdate {
   uint second;

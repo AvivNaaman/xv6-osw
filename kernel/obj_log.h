@@ -183,7 +183,7 @@
  */
 
 #include "kvector.h"
-#include "types.h"
+#include "../common/types.h"
 
 #define LOGBOOK_OBJECT_ID "\xfflogbook\xff"
 

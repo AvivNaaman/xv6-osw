@@ -1,6 +1,6 @@
 // #include "defs.h"
 #include "device.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "mount.h"
 #include "obj_fs.h"
 #include "proc.h"

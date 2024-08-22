@@ -8,7 +8,7 @@
 
 #include "defs.h"
 #include "mmu.h"
-#include "types.h"
+#include "../common/types.h"
 
 #define check_existence(vp, onerror) \
   if ((vp) == NULL) return onerror

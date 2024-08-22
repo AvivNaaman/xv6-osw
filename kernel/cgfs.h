@@ -4,7 +4,7 @@
 #define XV6_CGFS_H
 
 #include "cgroup.h"
-#include "stat.h"
+#include "../common/stat.h"
 #include "vfs_file.h"
 
 #define CGFS_PROCS "cgroup.procs"

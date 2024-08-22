@@ -2,7 +2,7 @@
 #define XV6_CGROUP_H
 
 #include "defs.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "vfs_file.h"
 

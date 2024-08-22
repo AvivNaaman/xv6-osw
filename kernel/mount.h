@@ -1,7 +1,7 @@
 #ifndef XV6_MOUNT_H
 #define XV6_MOUNT_H
 
-#include "types.h"
+#include "../common/types.h"
 
 struct mount {
   /* Pointer to the parent mount, if any. */

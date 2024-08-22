@@ -3,8 +3,8 @@
 // See also picirq.c.
 
 #include "defs.h"
-#include "traps.h"
-#include "types.h"
+#include "../common/traps.h"
+#include "../common/types.h"
 
 #define IOAPIC 0xFEC00000  // Default physical address of IO APIC
 

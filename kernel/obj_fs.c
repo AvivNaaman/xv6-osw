@@ -9,7 +9,7 @@
 #include "defs.h"
 #include "device.h"
 #include "file.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
@@ -17,12 +17,12 @@
 #include "obj_disk.h"  // for error codes and `new_inode_number`
 #include "obj_file.h"
 #include "obj_log.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "stat.h"
-#include "types.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 #include "vfs_fs.h"
 
 int obj_dirlink(struct vfs_inode *, char *, uint);

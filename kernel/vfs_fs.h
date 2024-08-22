@@ -1,7 +1,7 @@
 #ifndef XV6_VFS_FS_H
 #define XV6_VFS_FS_H
 
-#include "types.h"
+#include "../common/types.h"
 
 struct vfs_superblock {
   uint ninodes;  // Number of inodes.

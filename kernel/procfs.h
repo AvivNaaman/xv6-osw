@@ -4,7 +4,7 @@
 #define XV6_PROCFS_H
 
 #include "proc.h"
-#include "stat.h"
+#include "../common/stat.h"
 
 #define MAX_BUF (4096)
 

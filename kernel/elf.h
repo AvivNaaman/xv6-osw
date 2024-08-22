@@ -2,7 +2,7 @@
 #define XV6_ELF_H
 // Format of an ELF executable file
 
-#include "types.h"
+#include "../common/types.h"
 
 #define ELF_MAGIC 0x464C457FU  // "\x7FELF" in little endian
 

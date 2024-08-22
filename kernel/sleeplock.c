@@ -5,11 +5,11 @@
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "spinlock.h"
-#include "types.h"
-#include "x86.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 
 void initsleeplock(struct sleeplock *lk, char *name) {
   initlock(&lk->lk, "sleep lock");

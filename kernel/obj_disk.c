@@ -6,7 +6,7 @@
 #include "defs.h"
 #include "kvector.h"
 #include "sleeplock.h"
-#include "types.h"
+#include "../common/types.h"
 
 #define entry_index_to_entry_offset(index) \
   super_block.objects_table_offset + index * sizeof(ObjectsTableEntry)

@@ -1,14 +1,14 @@
 #include "defs.h"
 #include "file.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "mmu.h"
 #include "mount.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "stat.h"
-#include "types.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 
 int sys_unshare(void) {
   int nstype;

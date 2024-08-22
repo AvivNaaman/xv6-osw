@@ -2,16 +2,16 @@
 
 #include "buf.h"
 #include "defs.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "traps.h"
-#include "types.h"
-#include "x86.h"
+#include "../common/traps.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 
 #define SECTOR_SIZE 512
 #define IDE_BSY 0x80

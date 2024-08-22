@@ -1,12 +1,12 @@
 #include "defs.h"
 #include "file.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "mmu.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "types.h"
+#include "../common/types.h"
 
 #define PIPESIZE 512
 

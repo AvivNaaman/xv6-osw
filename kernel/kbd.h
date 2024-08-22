@@ -1,7 +1,7 @@
 #ifndef XV6_KBD_H
 #define XV6_KBD_H
 
-#include "types.h"
+#include "../common/types.h"
 
 // PC keyboard interface constants
 

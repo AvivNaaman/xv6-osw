@@ -1,8 +1,8 @@
 #ifndef XV6_OBJ_FS_H
 #define XV6_OBJ_FS_H
 
-#include "stat.h"
-#include "types.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 #include "vfs_fs.h"
 
 // Other parameters:

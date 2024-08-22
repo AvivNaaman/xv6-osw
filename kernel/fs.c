@@ -9,7 +9,7 @@
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
 
-#include "fs.h"
+#include "../common/fs.h"
 
 #include "buf.h"
 #include "defs.h"
@@ -18,12 +18,12 @@
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "stat.h"
-#include "types.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 #include "vfs_fs.h"
 
 int dirlink(struct vfs_inode *, char *, uint);

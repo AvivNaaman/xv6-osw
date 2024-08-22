@@ -3,7 +3,7 @@
 
 #include "kvector.h"
 #include "obj_fs.h"
-#include "types.h"
+#include "../common/types.h"
 
 /**
  * `obj_disk` specify the most lower level in the object file system.

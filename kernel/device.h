@@ -1,7 +1,7 @@
 #ifndef XV6_DEVICE_H
 #define XV6_DEVICE_H
 
-#include "fs.h"
+#include "../common/fs.h"
 #include "obj_fs.h"
 #include "spinlock.h"
 

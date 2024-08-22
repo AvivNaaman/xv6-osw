@@ -1,8 +1,8 @@
 #ifndef XV6_FILE_H
 #define XV6_FILE_H
 
-#include "fs.h"
-#include "param.h"
+#include "../common/fs.h"
+#include "../common/param.h"
 #include "sleeplock.h"
 #include "vfs_file.h"
 

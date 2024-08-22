@@ -1,7 +1,7 @@
 #ifndef XV6_MP_H
 #define XV6_MP_H
 
-#include "types.h"
+#include "../common/types.h"
 
 // See MultiProcessor Specification Version 1.[14]
 

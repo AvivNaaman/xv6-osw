@@ -2,15 +2,15 @@
 
 #include "defs.h"
 #include "file.h"
-#include "fs.h"
+#include "../common/fs.h"
 #include "mmu.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "traps.h"
-#include "types.h"
-#include "x86.h"
+#include "../common/traps.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 
 #define COM1 0x3f8
 

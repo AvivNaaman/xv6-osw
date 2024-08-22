@@ -1,7 +1,7 @@
 #ifndef XV6_DEFS_H
 #define XV6_DEFS_H
 
-#include "types.h"
+#include "../common/types.h"
 
 struct buf;
 struct context;

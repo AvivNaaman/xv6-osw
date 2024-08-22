@@ -68,7 +68,7 @@
  */
 
 #include "kvector.h"
-#include "types.h"
+#include "../common/types.h"
 
 void init_objects_cache();
 

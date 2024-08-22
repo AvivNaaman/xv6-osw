@@ -4,7 +4,7 @@
 #include "file.h"
 #include "obj_disk.h"
 #include "sleeplock.h"
-#include "types.h"
+#include "../common/types.h"
 
 struct dev_holder_s dev_holder = {0};
 

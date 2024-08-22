@@ -1,9 +1,9 @@
 #ifndef XV6_BUF_H
 #define XV6_BUF_H
 
-#include "fs.h"
+#include "../common/fs.h"
 #include "sleeplock.h"
-#include "types.h"
+#include "../common/types.h"
 
 struct buf {
   int flags;

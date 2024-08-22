@@ -1,7 +1,7 @@
 #ifndef XV6_SPINLOCK_H
 #define XV6_SPINLOCK_H
 
-#include "types.h"
+#include "../common/types.h"
 
 // Mutual exclusion lock.
 struct spinlock {

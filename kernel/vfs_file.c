@@ -7,11 +7,11 @@
 #include "defs.h"
 #include "device.h"
 #include "file.h"
-#include "fs.h"
-#include "param.h"
+#include "../common/fs.h"
+#include "../common/param.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "types.h"
+#include "../common/types.h"
 
 struct devsw devsw[NDEV];
 struct ftable_s ftable;

@@ -4,9 +4,9 @@
 #include "defs.h"
 #include "device.h"
 #include "kvector.h"
-#include "param.h"
+#include "../common/param.h"
 #include "sleeplock.h"
-#include "stat.h"
+#include "../common/stat.h"
 #include "vfs_fs.h"
 
 struct vfs_file;

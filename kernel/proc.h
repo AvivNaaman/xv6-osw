@@ -3,8 +3,8 @@
 
 #include "defs.h"
 #include "mmu.h"
-#include "param.h"
-#include "types.h"
+#include "../common/param.h"
+#include "../common/types.h"
 #include "vfs_file.h"
 
 struct cgroup;

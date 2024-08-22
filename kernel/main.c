@@ -3,11 +3,11 @@
 #include "mmu.h"
 #include "obj_cache.h"
 #include "obj_disk.h"
-#include "param.h"
+#include "../common/param.h"
 #include "proc.h"
-#include "types.h"
+#include "../common/types.h"
 #include "vfs_file.h"
-#include "x86.h"
+#include "../common/x86.h"
 
 static void objfsinit(void);
 

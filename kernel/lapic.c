@@ -5,10 +5,10 @@
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "param.h"
-#include "traps.h"
-#include "types.h"
-#include "x86.h"
+#include "../common/param.h"
+#include "../common/traps.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 
 // Local APIC registers, divided by 4 for use as uint[] indices.
 #define ID (0x0020 / 4)     // ID

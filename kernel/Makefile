@@ -51,6 +51,7 @@ OBJS = \
 	obj_log.o\
 	obj_fs.o
 
+all: bootblock kernel kernelmemfs initcode
 
 bootblock: bootasm.S bootmain.c
 	$(CC) $(CFLAGS) -fno-pic -O -nostdinc -I. -c bootmain.c
