@@ -1,3 +1,4 @@
+COMMON_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
@@ -83,3 +84,6 @@ ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
 LDFLAGS += -m $(shell $(LD) -V | grep elf_i386 2>/dev/null | head -n 1)
 
 -include *.d
+
+string.o: string.c
+	$(CC) $(CFLAGS) -c -o $@ $<
