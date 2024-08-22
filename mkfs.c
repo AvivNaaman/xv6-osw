@@ -6,10 +6,10 @@
 #include <unistd.h>
 
 #define stat xv6_stat  // avoid clash with host struct stat
-#include "../common/fs.h"
-#include "../common/param.h"
-#include "../common/stat.h"
-#include "../common/types.h"
+#include "common/fs.h"
+#include "common/param.h"
+#include "common/stat.h"
+#include "common/types.h"
 
 #ifndef static_assert
 #define static_assert(a, b) \

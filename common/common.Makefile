@@ -84,6 +84,3 @@ ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
 LDFLAGS += -m $(shell $(LD) -V | grep elf_i386 2>/dev/null | head -n 1)
 
 -include *.d
-
-string.o: string.c
-	$(CC) $(CFLAGS) -c -o $@ $<

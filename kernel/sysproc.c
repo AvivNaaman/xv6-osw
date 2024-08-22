@@ -3,7 +3,7 @@
 #include "defs.h"
 #include "../common/fcntl.h"
 #include "file.h"
-#include "ioctl_request.h"
+#include "../common/ioctl_request.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "../common/param.h"

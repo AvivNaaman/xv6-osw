@@ -1,32 +1,20 @@
 MAKEFILE_DIRECTORY := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-
-include common/common.Makefile
-
-xv6.img: bootblock kernel fs.img | windows_debugging
+xv6.img: kernel/bootblock kernel/kernel.bin fs.img | windows_debugging
 	dd if=/dev/zero of=xv6.img count=10000
-	dd if=bootblock of=xv6.img conv=notrunc
-	dd if=kernel of=xv6.img seek=1 conv=notrunc
+	dd if=kernel/bootblock of=xv6.img conv=notrunc
+	dd if=kernel/kernel.bin of=xv6.img seek=1 conv=notrunc
 
-xv6memfs.img: bootblock kernelmemfs
+xv6memfs.img: kernel/bootblock kernel/kernelmemfs
 	dd if=/dev/zero of=xv6memfs.img count=10000
-	dd if=bootblock of=xv6memfs.img conv=notrunc
-	dd if=kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
+	dd if=kernel/bootblock of=xv6memfs.img conv=notrunc
+	dd if=kernel/kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
 
-_forktest: forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
-	$(OBJDUMP) -S $@ > forktest.asm
-
-mkfs: mkfs.c fs.h
+mkfs: mkfs.c common/fs.h
 	gcc -ggdb -Werror -Wall -o mkfs mkfs.c
 
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
-.PRECIOUS: %.o
+tests/%: 
+	make -C tests
 
 UPROGS_TESTS=\
 	tests/xv6/_forktest\
@@ -36,31 +24,6 @@ UPROGS_TESTS=\
 	tests/xv6/_cgroupstests\
 	tests/xv6/_ioctltests\
 
-UPROGS=\
-	_cat\
-	_cp\
-	_echo\
-	_grep\
-	_init\
-	_kill\
-	_ln\
-	_ls\
-	_mkdir\
-	_rm\
-	_sh\
-	_stressfs\
-	_wc\
-	_zombie\
-	_mount\
-	_umount\
-	_timer\
-	_cpu\
-    _pouch\
-    _ctrl_grp\
-    _demo_pid_ns\
-    _demo_mount_ns
-
-UPROGS += $(UPROGS_TESTS)
 
 TEST_ASSETS=
 
@@ -99,23 +62,12 @@ internal_fs_%: mkfs
 	./mkfs $@ 1 $$(find $(CURDIR)/images/extracted/$@ -type f) $(CURDIR)/images/metadata/img_$*.attr
 	
 
-fs.img: mkfs README $(INTERNAL_DEV) $(UPROGS) _pouch # $(UPROGS)
-	./mkfs fs.img 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
-
--include *.d
-
-#clean:
-#	rm -rf mkfs bootblock.o fs.img xv6.img pouch.asm pouch.d pouch.o pouch.sym
+fs.img: user kernel/kernel.bin mkfs $(UPROGS) $(UPROGS_TESTS) $(INTERNAL_DEV) $(TEST_ASSETS)
+	./mkfs $@ 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
 
 clean: windows_debugging_clean
-	rm -rf *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*.o *.d *.asm *.sym vectors.S bootblock entryother \
-	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit objfs_tests kvector_tests \
-	tests/host/*.o tests/xv6/*.o tests/xv6/*.d tests/xv6/*.asm tests/xv6/*.sym \
-	$(UPROGS) \
-	$(INTERNAL_DEV) \
-	images/metadata images/extracted
+	make -C kernel clean
+	make -C user clean
 
 clean_oci:
 	rm -rf images/img_internal_fs_*

@@ -1,8 +1,8 @@
 #ifndef XV6_TESTER_H
 #define XV6_TESTER_H
 
-#include "user.h"
-#include "wstatus.h"
+#include "../user/lib/user.h"
+#include "../../common/wstatus.h"
 
 typedef int (*test_func_t)(void);
 /* In case all tests passed, this value will remain 0,
