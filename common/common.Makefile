@@ -1,3 +1,7 @@
+################################################################################
+# Common makefile with common variables and rules for xv6 user/kernel programs.
+################################################################################
+
 COMMON_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so

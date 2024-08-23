@@ -121,6 +121,6 @@ int main() {
   run_test(test_move_elements);
   run_test(test_move_elements_with_offset);
 
-  PRINT_TESTS_RESULT("KVECTORTESTS");
+  PRINT_TESTS_RESULT("KVECTOR_TESTS");
   return CURRENT_TESTS_RESULT();
 }

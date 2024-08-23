@@ -1,0 +1,199 @@
+mounttest
+Running all mounttest
+current->mnt.parent == 0
+mounttest tests passed successfully
+$ echo $?
+0
+$ ioctltests
+tty0 detached 
+
+tty0 connected
+Console connected
+tty0 disconnected 
+tty0 detatched 
+ioctl TESTS PASS:
+$ echo $?
+0
+$ mkdir cgroup_tests_dir
+$ echo $?
+0
+$ cd cgroup_tests_dir
+$ echo $?
+0
+$ cgroupstests
+[RUNNING] test_mount_cgroup_fs[DONE] test_mount_cgroup_fs   
+[RUNNING] test_creating_cgroups[DONE] test_creating_cgroups   
+[RUNNING] test_opening_closing_and_reading_cgroup_filesContents of /cgroup/test1/cgroup.procs: 
+
+Contents of /cgroup/test1/cgroup.controllers: 
+cpu
+pid
+set
+mem
+
+Contents of /cgroup/test1/cgroup.subtree_control: 
+
+Contents of /cgroup/test1/cgroup.events: 
+populated - 0
+frozen - 0
+
+Contents of /cgroup/test1/cgroup.max.descendants: 
+64
+
+Contents of /cgroup/test1/cgroup.max.depth: 
+64
+
+Contents of /cgroup/test1/cgroup.stat: 
+nr_descendants - 0
+nr_dying_descendants - 0
+
+Contents of /cgroup/test1/cpu.max: 
+
+Contents of /cgroup/test1/cpu.weight: 
+
+Contents of /cgroup/test1/cpu.stat: 
+usage_usec - 0
+user_usec - 0
+system_usec - 0
+
+Contents of /cgroup/test1/pid.max: 
+max - 64
+
+Contents of /cgroup/test1/pid.current: 
+num_of_procs - 0
+
+Contents of /cgroup/test1/cpuset.cpus: 
+use_cpu - 0
+
+Contents of /cgroup/test1/cgroup.freeze: 
+0
+
+Contents of /cgroup/test1/memory.current: 
+0
+
+Contents of /cgroup/test1/memory.max: 
+2147483648
+
+Contents of /cgroup/test1/memory.min: 
+0
+
+Contents of /cgroup/test1/memory.stat: 
+file_dirty - 0
+file_dirty_aggregated - 0
+pgfault - 0
+pgmajfault - 0
+kernel - 230842368
+
+[DONE] test_opening_closing_and_reading_cgroup_files   
+[RUNNING] test_memory_stat_content_valid[DONE] test_memory_stat_content_valid   
+[RUNNING] test_cpu_stat_content_valid[DONE] test_cpu_stat_content_valid   
+[RUNNING] test_moving_process[DONE] test_moving_process   
+[RUNNING] test_enable_and_disable_all_controllers[DONE] test_enable_and_disable_all_controllers   
+[RUNNING] test_limiting_pids[DONE] test_limiting_pids   
+[RUNNING] test_move_failure[DONE] test_move_failure   
+[RUNNING] test_fork_failure[DONE] test_fork_failure   
+[RUNNING] test_cpu_stat[DONE] test_cpu_stat   
+[RUNNING] test_pid_current[DONE] test_pid_current   
+[RUNNING] test_setting_cpu_id[DONE] test_setting_cpu_id   
+[RUNNING] test_no_run[DONE] test_no_run   
+[RUNNING] test_mem_stat[DONE] test_mem_stat   
+[RUNNING] test_setting_freeze[DONE] test_setting_freeze   
+[RUNNING] test_frozen_not_running[DONE] test_frozen_not_running   
+[RUNNING] test_mem_current[DONE] test_mem_current   
+[RUNNING] test_correct_mem_account_of_growth_and_shrink[DONE] test_correct_mem_account_of_growth_and_shrink   
+[RUNNING] test_limiting_mem[DONE] test_limiting_mem   
+[RUNNING] test_ensure_mem_min_is_less_then_mem_max[DONE] test_ensure_mem_min_is_less_then_mem_max   
+[RUNNING] test_cant_use_protected_memoryallocuvm out of memory
+[DONE] test_cant_use_protected_memory   
+[RUNNING] test_release_protected_memory_after_delete_cgroup[DONE] test_release_protected_memory_after_delete_cgroup   
+[RUNNING] test_cant_move_under_mem_limit[DONE] test_cant_move_under_mem_limit   
+[RUNNING] test_nested_cgroups
+kernel total memory: DBE8000 
+temp_path_g nested cgroup min path: /cgroup/nested0/memory.min
+Contents of /cgroup/nested0/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/memory.min
+Contents of /cgroup/nested0/nested1/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/memory.min
+Contents of /cgroup/nested0/nested1/nested2/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/nested4/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/memory.min: 
+23058841
+
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/memory.min
+Contents of /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/memory.min: 
+23058841
+
+[DONE] test_nested_cgroups   
+[RUNNING] test_nested_cgroup_memory_recalculation
+The min_value for allocation is: 20962583
+temp_path_g nested cgroup min path: /cgroup/nested0/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/nested9/memory.min
+temp_path_g nested cgroup path: /cgroup/nested0
+temp_path_g nested cgroup path: /cgroup/nested0/nested1
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8
+temp_path_g nested cgroup path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/nested9
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/nested9/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/nested8/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/nested7/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/nested6/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/nested5/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/nested4/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/nested3/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/nested2/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/nested1/memory.min
+temp_path_g nested cgroup min path: /cgroup/nested0/memory.min
+Contents of /cgroup/nested0/memory.max: 
+115294208
+
+Contents of /cgroup/nested0/memory.max: 
+409600
+
+Contents of /cgroup/nested0/nested1/memory.max: 
+40960
+
+[DONE] test_nested_cgroup_memory_recalculation   
+[RUNNING] test_mem_limit_negative_and_over_kernelbase[DONE] test_mem_limit_negative_and_over_kernelbase   
+[RUNNING] test_cant_move_over_mem_limit[DONE] test_cant_move_over_mem_limit   
+[RUNNING] test_cant_fork_over_mem_limit[DONE] test_cant_fork_over_mem_limit   
+[RUNNING] test_cant_grow_over_mem_limit[DONE] test_cant_grow_over_mem_limit   
+[RUNNING] test_limiting_cpu_max_and_period[DONE] test_limiting_cpu_max_and_period   
+[RUNNING] test_setting_max_descendants_and_max_depth[DONE] test_setting_max_descendants_and_max_depth   
+[RUNNING] test_deleting_cgroups[DONE] test_deleting_cgroups   
+[RUNNING] test_umount_cgroup_fs[DONE] test_umount_cgroup_fs   
+[RUNNING] test_kernel_freem_mem

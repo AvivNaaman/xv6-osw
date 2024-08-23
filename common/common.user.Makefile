@@ -1,3 +1,11 @@
+################################################################################
+# This common Makefile defines rules for building user programs.
+# It compiles user programs to object files, and links them with the user library
+# Producting a _binary executable file out of binary.c.
+# Include this Makefile in your Makefile, and requiring the _* target will build the user program.
+################################################################################
+
+
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 
 include $(dir $(mkfile_path))/common.Makefile

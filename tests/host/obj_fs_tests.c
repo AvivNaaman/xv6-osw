@@ -467,6 +467,6 @@ int main() {
   run_test(logbook_rewrite_object_regular_flow);
   run_test(logbook_delete_object_regular_flow);
 
-  PRINT_TESTS_RESULT("KVECTORTESTS");
+  PRINT_TESTS_RESULT("OBJ_FS_TESTS");
   return CURRENT_TESTS_RESULT();
 }

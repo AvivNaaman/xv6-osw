@@ -10,11 +10,37 @@ xv6memfs.img: kernel/bootblock kernel/kernelmemfs
 	dd if=kernel/bootblock of=xv6memfs.img conv=notrunc
 	dd if=kernel/kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
 
-mkfs: mkfs.c common/fs.h
-	gcc -ggdb -Werror -Wall -o mkfs mkfs.c
+include common/common.Makefile
 
-tests/%: 
-	make -C tests
+
+UPROGS=\
+	_cat\
+	_cp\
+	_echo\
+	_grep\
+	_init\
+	_kill\
+	_ln\
+	_ls\
+	_mkdir\
+	_rm\
+	_sh\
+	_stressfs\
+	_wc\
+	_zombie\
+	_mount\
+	_umount\
+	_timer\
+	_cpu\
+    _pouch\
+    _ctrl_grp\
+    _demo_pid_ns\
+    _demo_mount_ns
+
+
+# UPROGS now contains a list of all user programs that are built by the Makefile in the user directory.
+# Replace it's value by the very same list, after appending user/ prefix to each item:
+UPROGS_ABS=$(patsubst %, user/%, $(UPROGS))
 
 UPROGS_TESTS=\
 	tests/xv6/_forktest\
@@ -36,6 +62,16 @@ INTERNAL_DEV=\
 	internal_fs_a \
 	internal_fs_b \
 	internal_fs_c
+
+mkfs: mkfs.c common/fs.h
+	gcc -ggdb -Werror -Wall -o mkfs mkfs.c
+
+kernel/%:
+	make -C kernel
+
+user/%:
+	make -C user $*
+
 
 # Docker build & skopeo copy, create OCI images.
 # Docker daemon must be running and available from this context.
@@ -62,27 +98,21 @@ internal_fs_%: mkfs
 	./mkfs $@ 1 $$(find $(CURDIR)/images/extracted/$@ -type f) $(CURDIR)/images/metadata/img_$*.attr
 	
 
-fs.img: user kernel/kernel.bin mkfs $(UPROGS) $(UPROGS_TESTS) $(INTERNAL_DEV) $(TEST_ASSETS)
-	./mkfs $@ 0 README $(UPROGS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
+fs.img: user kernel/kernel.bin mkfs $(UPROGS_ABS) $(UPROGS_TESTS) $(INTERNAL_DEV) $(TEST_ASSETS)
+	./mkfs $@ 0 README $(UPROGS_ABS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
 
 clean: windows_debugging_clean
 	make -C kernel clean
 	make -C user clean
+	make -C tests clean
+	rm -f $(INTERNAL_DEV) mkfs xv6.img xv6memfs.img fs.img
 
 clean_oci:
 	rm -rf images/img_internal_fs_*
 	docker rmi -f $(shell docker images -q -f "reference=xv6_internal_fs_*") > /dev/null 2>&1 || true
 
-
-# make a printout
-FILES = $(shell grep -v '^\#' runoff.list)
-PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
-
-xv6.pdf: $(PRINT)
-	./runoff
-	ls -l xv6.pdf
-
-print: xv6.pdf
+runoff:
+	make -C runoff
 
 # run in emulators
 
@@ -183,22 +213,8 @@ windows_debugging_clean:
 
 .PHONY: dist-test dist windows_debugging windows_debugging_mkdir windows_debugging_clean
 
-# Object file system related files
-# TODO integrate with the rest of xv6 sources - would be done in later part.
-objfs_tests: string.c obj_disk.c obj_cache.c obj_log.c kvector.c tests/host/common_mocks.c tests/host/obj_fs_tests.c
-	$(CC) $(HOST_TESTS_CFLAGS) $(OFLAGS) \
-		obj_disk.c obj_cache.c obj_log.c kvector.c tests/host/common_mocks.c tests/host/obj_fs_tests.c \
-		-std=gnu99 \
-		-include tests/host/common_mocks.h \
-		-o objfs_tests
-
-kvector_tests: string.c kvector.c tests/host/kvectortest.c tests/host/common_mocks.c
-	$(CC) $(HOST_TESTS_CFLAGS) $(OFLAGS) \
-		kvector.c tests/host/kvectortest.c tests/host/common_mocks.c \
-		-std=gnu99 \
-		-o kvector_tests
-
-host-tests: kvector_tests objfs_tests
+host-tests: 
+	make -C tests/host
 
 host-tests-debug: OFLAGS = -Og -ggdb
 host-tests-debug: host-tests

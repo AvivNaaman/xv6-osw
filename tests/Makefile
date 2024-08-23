@@ -1,12 +1,7 @@
-
-TEST_MAKE_SUBDIRS = xv6 host
-
-all:
-	@for dir in $(TEST_MAKE_SUBDIRS); do \
-		$(MAKE) -C $$dir all; \
-	done
+################################################################################
+# Contains clean target to remove all user binaries and intermediate files in subdirectories.
+################################################################################
 
 clean:
-	@for dir in $(TEST_MAKE_SUBDIRS); do \
-		$(MAKE) -C $$dir clean; \
-	done
+	make -C xv6 clean
+	make -C host clean
