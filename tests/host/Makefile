@@ -1,18 +1,26 @@
 
-HOST_TESTS_EXECUTABLES = kvectortests obj_fs_tests
+HOST_TESTS_EXECUTABLES = kvector_tests obj_fs_tests
 
 all: $(HOST_TESTS_EXECUTABLES)
 
 include ../../common/common.Makefile
+# NOTE! gcc-multilib is required to build 32-bit binaries on 64-bit systems.
+CFLAGS = -static -m32 -MD -std=gnu99 -Wall -Werror -Wno-builtin-declaration-mismatch -DHOST_TESTS
+LDFLAGS = -m elf_i386
 
-# This is a generic rule to build a test executable from a .c file.
-# if you want to add a new test, just add it to the list of tests, and make sure it's
-# binary and *.c file have the same name, and both end with `test`.
-%tests: %tests.c common_mocks.o
-	$(CC) $(HOST_TESTS_CFLAGS) $(OFLAGS) -o $@ $^
+# Object file system related files
+# TODO integrate with the rest of xv6 sources - would be done in later part.
+objfs_tests: obj_fs_tests.o obj_disk_ktbin.o obj_cache_ktbin.o obj_log_ktbin.o kvector_ktbin.o common_mocks.o 
+	$(CC) $(CFLAGS) $(OFLAGS) $^ -std=gnu99 -include  -o $@
+
+kvector_tests:  kvector_ktbin.o kvector_tests.o common_mocks.o
+	$(CC) $(CFLAGS) $(OFLAGS) $^ -std=gnu99 -o $@
 
 common_mocks.o: common_mocks.c common_mocks.h
-	$(CC) $(HOST_TESTS_CFLAGS) $(OFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(OFLAGS) -c -o $@ $<
+
+%_ktbin.o: ../../kernel/%.c ../../kernel/%.h
+	$(CC) $(CFLAGS) $(OFLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(HOST_TESTS_EXECUTABLES)

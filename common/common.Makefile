@@ -59,8 +59,6 @@ OBJDUMP = $(TOOLPREFIX)objdump
 CFLAGS = -static -MD -m32 -mno-sse -gstabs -std=gnu99 -Wall -Werror -Wstack-usage=4096 \
 	-fno-pic -fno-builtin -fno-strict-aliasing -fno-omit-frame-pointer $(OFLAGS) \
 	-I$(MAKEFILE_DIRECTORY) -I$(MAKEFILE_DIRECTORY)/tests/framework
-HOST_TESTS_CFLAGS = -static -m32 -MD -std=gnu99 -Wall -Werror -Wno-builtin-declaration-mismatch -I$(MAKEFILE_DIRECTORY) \
-	-I$(MAKEFILE_DIRECTORY)/tests/host/ -I$(MAKEFILE_DIRECTORY)/tests/framework/ -DHOST_TESTS
 
 #x86
 HOST_CPU_TSC_FREQ := $(shell cat /proc/cpuinfo | grep -i "cpu mhz" | head -n 1 | rev | cut -d ' ' -f 1 | rev | cut -d '.' -f 1)*1000
