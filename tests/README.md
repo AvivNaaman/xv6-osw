@@ -1,5 +1,5 @@
-XV6 TESTS
----------------------
+# XV6 TESTS
+
 This directory contains two folders.
 
 1. host - which holds tests that should run

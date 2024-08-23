@@ -1,4 +1,4 @@
-#include "syscall.h"
+#include "../../common/syscall.h"
 #include "../../common/traps.h"
 
 #define SYSCALL(name) \

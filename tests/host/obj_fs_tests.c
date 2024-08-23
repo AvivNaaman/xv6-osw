@@ -4,10 +4,10 @@
 
 #include "../framework/test.h"
 #include "common_mocks.h"
-#include "defs.h"
-#include "obj_cache.h"
-#include "obj_disk.h"
-#include "obj_log.h"
+#include "../../kernel/defs.h"
+#include "../../kernel/obj_cache.h"
+#include "../../kernel/obj_disk.h"
+#include "../../kernel/obj_log.h"
 
 /**
  * Disk layer tests

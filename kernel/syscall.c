@@ -1,4 +1,4 @@
-#include "syscall.h"
+#include "../common/syscall.h"
 
 #include "defs.h"
 #include "memlayout.h"

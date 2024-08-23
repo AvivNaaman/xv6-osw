@@ -1,7 +1,7 @@
 #ifndef XV6_TESTER_H
 #define XV6_TESTER_H
 
-#include "../user/lib/user.h"
+#include "../../user/lib/user.h"
 #include "../../common/wstatus.h"
 
 typedef int (*test_func_t)(void);

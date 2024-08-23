@@ -3,8 +3,8 @@
 
 #include "../framework/test.h"
 #include "common_mocks.h"
-#include "defs.h"
-#include "kvector.h"
+#include "../../kernel/defs.h"
+#include "../../kernel/kvector.h"
 
 #define isInfoEqual(info1, info2)                                    \
   ((info1).age == (info2).age && (info1).height == (info2).height && \
