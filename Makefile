@@ -114,7 +114,7 @@ clean_oci:
 	docker rmi -f $(shell docker images -q -f "reference=xv6_internal_fs_*") > /dev/null 2>&1 || true
 
 runoff:
-	make -C runoff
+	make -C scripts/runoff
 
 # run in emulators
 
