@@ -1,15 +1,15 @@
 #include "pid_ns.h"
 
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/wstatus.h"
+#include "../common/x86.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "namespace.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "spinlock.h"
-#include "../common/types.h"
-#include "../common/wstatus.h"
-#include "../common/x86.h"
 
 struct {
   struct spinlock lock;

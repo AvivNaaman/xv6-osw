@@ -4,7 +4,7 @@
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
 
-#include "vfs_fs.h"
+#include "../common/vfs_fs.h"
 
 #define ROOTINO 1   // root i-number
 #define BSIZE 1024  // block size

@@ -4,13 +4,13 @@
 
 #include "mp.h"
 
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "proc.h"
-#include "../common/types.h"
-#include "../common/x86.h"
 
 struct cpu cpus[NCPU];
 int ncpu;

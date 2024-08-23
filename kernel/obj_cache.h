@@ -67,8 +67,8 @@
  *      TODO support more devices.
  */
 
-#include "kvector.h"
 #include "../common/types.h"
+#include "kvector.h"
 
 void init_objects_cache();
 

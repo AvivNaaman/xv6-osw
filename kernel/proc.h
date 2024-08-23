@@ -1,10 +1,10 @@
 #ifndef XV6_PROC_H
 #define XV6_PROC_H
 
-#include "defs.h"
-#include "mmu.h"
 #include "../common/param.h"
 #include "../common/types.h"
+#include "defs.h"
+#include "mmu.h"
 #include "vfs_file.h"
 
 struct cgroup;

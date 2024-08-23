@@ -1,13 +1,13 @@
+#include "../common/param.h"
+#include "../common/traps.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "spinlock.h"
-#include "../common/traps.h"
-#include "../common/types.h"
-#include "../common/x86.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];

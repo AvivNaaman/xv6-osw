@@ -4,21 +4,21 @@
 // user code, and calls into vfs_file.c and vfs_fs.c.
 //
 
+#include "../common/fcntl.h"
+#include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/vfs_fs.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "device.h"
-#include "../common/fcntl.h"
 #include "file.h"
-#include "../common/fs.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/types.h"
-#include "vfs_fs.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.

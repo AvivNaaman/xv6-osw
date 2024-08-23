@@ -1,13 +1,13 @@
+#include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/types.h"
 #include "buf.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "device.h"
-#include "../common/fs.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/types.h"
 
 // Simple logging that allows concurrent FS system calls.
 //

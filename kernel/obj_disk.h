@@ -1,9 +1,9 @@
 #ifndef XV6_OBJ_DISK_H
 #define XV6_OBJ_DISK_H
 
+#include "../common/types.h"
 #include "kvector.h"
 #include "obj_fs.h"
-#include "../common/types.h"
 
 /**
  * `obj_disk` specify the most lower level in the object file system.

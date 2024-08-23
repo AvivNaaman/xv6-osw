@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../framework/test.h"
-#include "common_mocks.h"
 #include "../../kernel/defs.h"
 #include "../../kernel/kvector.h"
+#include "../framework/test.h"
+#include "common_mocks.h"
 
 #define isInfoEqual(info1, info2)                                    \
   ((info1).age == (info2).age && (info1).height == (info2).height && \

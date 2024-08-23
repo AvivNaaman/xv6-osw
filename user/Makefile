@@ -6,7 +6,7 @@
 
 .PHONY: all clean
 
-include ../common/common.user.Makefile
+include ../user/common.user.Makefile
 
 clean:
 	rm -f $(ULIB) _*

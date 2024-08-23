@@ -1,13 +1,13 @@
 #include "cgfs.h"
 
-#include "defs.h"
 #include "../common/fcntl.h"
-#include "file.h"
 #include "../common/fs.h"
-#include "mmu.h"
 #include "../common/param.h"
-#include "spinlock.h"
 #include "../common/types.h"
+#include "defs.h"
+#include "file.h"
+#include "mmu.h"
+#include "spinlock.h"
 
 #define MAX_PID_LENGTH 5
 #define MAX_CGROUP_DIR_ENTRIES 64

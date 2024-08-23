@@ -72,6 +72,8 @@ kernel/%:
 user/%:
 	make -C user $*
 
+tests/xv6/%:
+	make -C tests/xv6 $*
 
 # Docker build & skopeo copy, create OCI images.
 # Docker daemon must be running and available from this context.
@@ -99,7 +101,7 @@ internal_fs_%: mkfs
 	
 
 fs.img: user kernel/kernel.bin mkfs $(UPROGS_ABS) $(UPROGS_TESTS) $(INTERNAL_DEV) $(TEST_ASSETS)
-	./mkfs $@ 0 README $(UPROGS_ABS) $(INTERNAL_DEV) $(TEST_ASSETS) $(CURDIR)/images/metadata/all_images
+	./mkfs $@ 0 README $(UPROGS_ABS) $(INTERNAL_DEV) $(TEST_ASSETS) $(UPROGS_TESTS) $(CURDIR)/images/metadata/all_images
 
 clean: windows_debugging_clean
 	make -C kernel clean

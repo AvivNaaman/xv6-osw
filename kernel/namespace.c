@@ -1,18 +1,18 @@
 #include "namespace.h"
 
-#include "defs.h"
-#include "file.h"
 #include "../common/fs.h"
-#include "mmu.h"
-#include "mount.h"
 #include "../common/ns_types.h"
 #include "../common/param.h"
+#include "../common/stat.h"
+#include "../common/types.h"
+#include "defs.h"
+#include "file.h"
+#include "mmu.h"
+#include "mount.h"
 #include "pid_ns.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/stat.h"
-#include "../common/types.h"
 
 struct {
   struct spinlock lock;

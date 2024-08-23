@@ -1,3 +1,7 @@
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/vfs_fs.h"
+#include "../common/x86.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "elf.h"
@@ -5,12 +9,8 @@
 #include "kvector.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "proc.h"
-#include "../common/types.h"
 #include "vfs_file.h"
-#include "vfs_fs.h"
-#include "../common/x86.h"
 
 int exec(char *path, char **argv) {
   char *s, *last;

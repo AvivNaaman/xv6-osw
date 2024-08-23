@@ -1,12 +1,12 @@
 #include "procfs.h"
 
-#include "defs.h"
-#include "device.h"
 #include "../common/fcntl.h"
 #include "../common/fs.h"
+#include "../common/param.h"
+#include "defs.h"
+#include "device.h"
 #include "mount_ns.h"
 #include "namespace.h"
-#include "../common/param.h"
 #include "vfs_file.h"
 
 // Static to save space in the stack.

@@ -182,8 +182,8 @@
  *  writing the new object to the disk.
  */
 
-#include "kvector.h"
 #include "../common/types.h"
+#include "kvector.h"
 
 #define LOGBOOK_OBJECT_ID "\xfflogbook\xff"
 

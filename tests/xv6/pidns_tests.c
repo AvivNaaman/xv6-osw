@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
-#include "../framework/tester.h"
 #include "../../common/syscall.h"
 #include "../../common/types.h"
 #include "../../user/lib/user.h"
+#include "../framework/tester.h"
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 

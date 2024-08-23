@@ -1,10 +1,10 @@
 #include "device.h"
 
+#include "../common/types.h"
 #include "defs.h"
 #include "file.h"
 #include "obj_disk.h"
 #include "sleeplock.h"
-#include "../common/types.h"
 
 struct dev_holder_s dev_holder = {0};
 

@@ -1,13 +1,13 @@
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "obj_cache.h"
 #include "obj_disk.h"
-#include "../common/param.h"
 #include "proc.h"
-#include "../common/types.h"
 #include "vfs_file.h"
-#include "../common/x86.h"
 
 static void objfsinit(void);
 

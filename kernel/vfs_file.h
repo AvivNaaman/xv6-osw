@@ -1,13 +1,13 @@
 #ifndef XV6_VFS_FILE_H
 #define XV6_VFS_FILE_H
 
+#include "../common/param.h"
+#include "../common/stat.h"
+#include "../common/vfs_fs.h"
 #include "defs.h"
 #include "device.h"
 #include "kvector.h"
-#include "../common/param.h"
 #include "sleeplock.h"
-#include "../common/stat.h"
-#include "vfs_fs.h"
 
 struct vfs_file;
 

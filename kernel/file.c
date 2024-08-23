@@ -4,12 +4,12 @@
 
 #include "file.h"
 
-#include "defs.h"
 #include "../common/fs.h"
 #include "../common/param.h"
+#include "../common/types.h"
+#include "defs.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/types.h"
 
 struct devsw devsw[NDEV];
 

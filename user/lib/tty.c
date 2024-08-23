@@ -1,8 +1,8 @@
 #include "../../common/fcntl.h"
 #include "../../common/stat.h"
 #include "../../common/types.h"
-#include "user.h"
 #include "../../common/x86.h"
+#include "user.h"
 
 int is_attached_tty(int tty_fd) { return ioctl(tty_fd, TTYGETS, DEV_ATTACH); }
 

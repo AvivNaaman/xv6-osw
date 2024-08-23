@@ -4,21 +4,21 @@
 
 #include "console.h"
 
-#include "defs.h"
 #include "../common/fcntl.h"
-#include "file.h"
 #include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/traps.h"
+#include "../common/types.h"
+#include "../common/x86.h"
+#include "defs.h"
+#include "file.h"
 #include "kvector.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "pid_ns.h"
 #include "proc.h"
 #include "sleeplock.h"
-#include "../common/traps.h"
-#include "../common/types.h"
 #include "vfs_file.h"
-#include "../common/x86.h"
 
 static ushort *crt = (ushort *)P2V(0xb8000);  // CGA memory
 static int panicked = 0;

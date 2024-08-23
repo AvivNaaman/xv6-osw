@@ -3,8 +3,8 @@
 #ifndef XV6_CGFS_H
 #define XV6_CGFS_H
 
-#include "cgroup.h"
 #include "../common/stat.h"
+#include "cgroup.h"
 #include "vfs_file.h"
 
 #define CGFS_PROCS "cgroup.procs"

@@ -1,17 +1,17 @@
 #include "mount_ns.h"
 
+#include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/stat.h"
+#include "../common/types.h"
 #include "defs.h"
 #include "file.h"
-#include "../common/fs.h"
 #include "mmu.h"
 #include "mount.h"
 #include "namespace.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/stat.h"
-#include "../common/types.h"
 
 struct {
   struct spinlock lock;

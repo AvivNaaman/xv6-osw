@@ -2,10 +2,10 @@
 
 #include "../common/fcntl.h"
 #include "../common/fs.h"
-#include "lib/mutex.h"
 #include "../common/ns_types.h"
 #include "../common/param.h"
 #include "../common/stat.h"
+#include "lib/mutex.h"
 #include "lib/user.h"
 
 #define POUCH_GLOBAL_LOCK_NAME "pouch_glk"

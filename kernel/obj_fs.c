@@ -5,11 +5,15 @@
 
 #include "obj_fs.h"
 
+#include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/stat.h"
+#include "../common/types.h"
+#include "../common/vfs_fs.h"
 #include "buf.h"
 #include "defs.h"
 #include "device.h"
 #include "file.h"
-#include "../common/fs.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
@@ -17,13 +21,9 @@
 #include "obj_disk.h"  // for error codes and `new_inode_number`
 #include "obj_file.h"
 #include "obj_log.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/stat.h"
-#include "../common/types.h"
-#include "vfs_fs.h"
 
 int obj_dirlink(struct vfs_inode *, char *, uint);
 struct vfs_inode *obj_dirlookup(struct vfs_inode *, char *, uint *);

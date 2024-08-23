@@ -3,8 +3,8 @@
 #ifndef XV6_PROCFS_H
 #define XV6_PROCFS_H
 
-#include "proc.h"
 #include "../common/stat.h"
+#include "proc.h"
 
 #define MAX_BUF (4096)
 

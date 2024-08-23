@@ -3,7 +3,7 @@
 
 #include "../common/stat.h"
 #include "../common/types.h"
-#include "vfs_fs.h"
+#include "../common/vfs_fs.h"
 
 // Other parameters:
 #define MAX_OBJECT_NAME_LENGTH 20

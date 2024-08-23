@@ -1,13 +1,13 @@
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "elf.h"
 #include "kvector.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "proc.h"
-#include "../common/types.h"
-#include "../common/x86.h"
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;       // for use in scheduler()

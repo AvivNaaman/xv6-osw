@@ -1,17 +1,17 @@
+#include "../common/fcntl.h"
+#include "../common/ioctl_request.h"
+#include "../common/param.h"
+#include "../common/stat.h"
+#include "../common/types.h"
+#include "../common/x86.h"
 #include "console.h"
 #include "date.h"
 #include "defs.h"
-#include "../common/fcntl.h"
 #include "file.h"
-#include "../common/ioctl_request.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "../common/param.h"
 #include "proc.h"
-#include "../common/stat.h"
 #include "steady_clock.h"
-#include "../common/types.h"
-#include "../common/x86.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.

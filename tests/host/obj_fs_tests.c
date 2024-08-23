@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../framework/test.h"
-#include "common_mocks.h"
 #include "../../kernel/defs.h"
 #include "../../kernel/obj_cache.h"
 #include "../../kernel/obj_disk.h"
 #include "../../kernel/obj_log.h"
+#include "../framework/test.h"
+#include "common_mocks.h"
 
 /**
  * Disk layer tests

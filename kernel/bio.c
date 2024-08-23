@@ -18,20 +18,20 @@
 // * B_DIRTY: the buffer data has been modified
 //     and needs to be written to disk.
 
+#include "../common/fs.h"
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/vfs_fs.h"
 #include "buf.h"
 #include "cgroup.h"
 #include "defs.h"
 #include "device.h"
 #include "file.h"
-#include "../common/fs.h"
 #include "kvector.h"
-#include "../common/param.h"
 #include "proc.h"
 #include "sleeplock.h"
 #include "spinlock.h"
-#include "../common/types.h"
 #include "vfs_file.h"
-#include "vfs_fs.h"
 
 struct {
   struct spinlock lock;

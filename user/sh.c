@@ -2,8 +2,8 @@
 
 #include "../common/fcntl.h"
 #include "../common/types.h"
-#include "lib/user.h"
 #include "../common/wstatus.h"
+#include "lib/user.h"
 
 // Parsed command representation
 #define EXEC 1

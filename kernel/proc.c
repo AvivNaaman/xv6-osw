@@ -1,18 +1,18 @@
 #include "proc.h"
 
+#include "../common/param.h"
+#include "../common/types.h"
+#include "../common/wstatus.h"
+#include "../common/x86.h"
 #include "cpu_account.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "namespace.h"
 #include "obj_log.h"
-#include "../common/param.h"
 #include "pid_ns.h"
 #include "procfs.h"
 #include "spinlock.h"
-#include "../common/types.h"
-#include "../common/wstatus.h"
-#include "../common/x86.h"
 
 struct {
   struct spinlock lock;

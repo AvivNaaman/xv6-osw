@@ -1,8 +1,8 @@
 #include "../../common/fcntl.h"
 #include "../../common/stat.h"
 #include "../../common/types.h"
-#include "user.h"
 #include "../../common/x86.h"
+#include "user.h"
 
 char *strcpy(char *s, const char *t) {
   char *os;
