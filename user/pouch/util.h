@@ -1,0 +1,2 @@
+
+char* fmtname(char* path);

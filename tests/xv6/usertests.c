@@ -12,7 +12,6 @@
 char buf[8192];
 char name[3];
 char *echoargv[] = {"/echo", "ALL", "TESTS", "PASSED", 0};
-int stdout = 1;
 
 // does chdir() call iput(p->cwd) in a transaction?
 void iputtest(const char *fs_type) {
@@ -304,7 +303,7 @@ void dirtest(const char *fs_type) {
 
 int exectest(void) {
   printf(stdout, "exec test\n");
-  if (exec("/echo", echoargv) < 0) {
+  if (exec("/echo", (const char **)echoargv) < 0) {
     printf(stdout, "exec echo failed\n");
     return 1;
   }
@@ -1593,7 +1592,7 @@ void bigargtest(void) {
           "                 ";
     args[MAXARG - 1] = 0;
     printf(stdout, "bigarg test\n");
-    exec("/echo", args);
+    exec("/echo", (const char **)args);
     printf(stdout, "bigarg test ok\n");
     fd = open("bigarg-ok", O_CREATE);
     close(fd);

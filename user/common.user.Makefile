@@ -8,6 +8,7 @@
 
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 
+INCLUDE_COMMON += -I$(realpath $(dir $(mkfile_path)))
 include $(dir $(mkfile_path))../common/common.Makefile
 
 # ../user/lib

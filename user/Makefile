@@ -8,6 +8,11 @@
 
 include ../user/common.user.Makefile
 
+_pouch:
+	make -C pouch
+	cp pouch/_pouch .
+
 clean:
 	rm -f $(ULIB) _*
 	rm -rf *.o *.d *.asm *.sym
+	make -C pouch clean

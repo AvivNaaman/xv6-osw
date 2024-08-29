@@ -168,3 +168,8 @@ char *strtok_r(char *str, char *const delim, char **saveptr) {
   }
   return to_return;
 }
+
+bool isspace(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' ||
+         c == '\v';
+}

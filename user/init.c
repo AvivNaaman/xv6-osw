@@ -5,7 +5,7 @@
 #include "stat.h"
 #include "types.h"
 
-char *argv[] = {"sh", 0};
+const char *argv[] = {"sh", 0};
 
 // a function to check if a directory exists based on stat.h definitions
 int dir_exists(const char *path) {

@@ -106,7 +106,7 @@ void runcmd(struct cmd *cmd) {
         exit(1);
       }
 
-      exec(ecmd->argv[0], ecmd->argv);
+      exec(ecmd->argv[0], (const char **)ecmd->argv);
 
       fd = open(ecmd->argv[0], O_RDONLY);
       if (-1 != fd) {
@@ -116,7 +116,7 @@ void runcmd(struct cmd *cmd) {
         char *root_cmd = malloc(strlen(ecmd->argv[0]) + 1);
         root_cmd[0] = '/';
         strcpy(root_cmd + 1, ecmd->argv[0]);
-        exec(root_cmd, ecmd->argv);
+        exec(root_cmd, (const char **)ecmd->argv);
         free(root_cmd);
       }
 

@@ -7,7 +7,10 @@
 struct stat;
 struct rtcdate;
 
-#define stderr 2
+#define stdin (0)
+#define stdout (1)
+#define stderr (2)
+
 #define IMAGE_DIR "/images/"
 
 // system calls
@@ -19,7 +22,7 @@ int write(int, const void*, int);
 int read(int, void*, int);
 int close(int);
 int kill(int);
-int exec(char*, char**);
+int exec(const char*, const char**);
 int open(const char*, int);
 int mknod(char*, short, short);
 int unlink(const char*);
@@ -53,6 +56,7 @@ char* strstr(char* src, char* needle);
 char* strtok_r(char* str, char* const delim, char** saveptr);
 
 int printf(int, const char*, ...);
+void perror(const char*);
 char* gets(char*, int max);
 uint strlen(const char*);
 void* memset(void*, int, uint);
@@ -61,6 +65,8 @@ void free(void*);
 int atoi(const char*);
 int itoa(char*, int);
 char* strcat(char* dest, const char* source);
+
+bool isspace(char c);
 
 int attach_tty(int tty_fd);
 int detach_tty(int tty_fd);
