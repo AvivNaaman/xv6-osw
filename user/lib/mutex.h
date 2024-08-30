@@ -9,7 +9,7 @@
 #ifdef MUTEX_DEBUG
 #define MUTEX_LOG_DEBUG(fmt, ...)  \
   do {                             \
-    printf(1, fmt, ##__VA_ARGS__); \
+    printf(stdout, fmt, ##__VA_ARGS__); \
   } while (0)
 #else
 #define MUTEX_LOG_DEBUG(fmt, ...)

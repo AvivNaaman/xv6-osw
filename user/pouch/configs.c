@@ -10,20 +10,27 @@ pouch_status init_pouch_conf() {
   // to it
   int i;
   int ttyc_fd;
-  char ttyc[] = "tty.cX";
+  pouch_status status = SUCCESS_CODE;
 
   // Not including the console tty
   for (i = 0; i < (MAX_TTY - 1); i++) {
+    char ttyc[] = "tty.cX";
     ttyc[5] = '0' + i;
     // check if cname ttys already created
     if (open(ttyc, O_RDWR) > 0) continue;
     if ((ttyc_fd = open(ttyc, O_CREATE | O_RDWR)) < 0) {
       printf(stderr, "cannot open %s fd\n", ttyc);
-      return TTY_OPEN_ERROR_CODE;
+      status = TTY_OPEN_ERROR_CODE;
+      goto end;
     }
-    if (close(ttyc_fd) < 0) return ERROR_CODE;
+    if (close(ttyc_fd) < 0) {
+      printf(stderr, "cannot close %s fd\n", ttyc);
+      status = TTY_CLOSE_ERROR_CODE;
+      goto end;
+    }
   }
-  return SUCCESS_CODE;
+end:
+  return status;
 }
 
 pouch_status write_to_pconf(const char* const ttyname,

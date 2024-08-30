@@ -24,7 +24,6 @@ pouch_status pouch_build(const char* file_name, const char* tag);
  *   Get all avaliable images
  *   @input: none
  *   @output: prints all avaliable images
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status pouch_print_images();
 
@@ -32,7 +31,6 @@ pouch_status pouch_print_images();
  *   Check if image exists in images list by it's name
  *   @input: image_name
  *   @output: none
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status image_exists(const char* const image_name);
 

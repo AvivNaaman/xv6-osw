@@ -22,11 +22,13 @@ static const char* start_container_argv[] = {"sh", 0};
  */
 static pouch_status prepare_cgroup_cname(const char* const container_name,
                                          char* const cg_cname) {
-  if (strlen(container_name) + strlen("/cgroup/") > MAX_PATH_LENGTH) {
+  if (strlen(container_name) + strlen(POUCH_CGROUPS_DIR) + 1 >
+      MAX_PATH_LENGTH) {
     perror("Container name is too long");
     return CONTAINER_NAME_TOO_LONG_CODE;
   }
-  strcpy(cg_cname, "/cgroup/");
+  strcpy(cg_cname, POUCH_CGROUPS_DIR);
+  strcat(cg_cname, "/");
   strcat(cg_cname, container_name);
   return SUCCESS_CODE;
 }
@@ -37,7 +39,6 @@ static pouch_status prepare_cgroup_cname(const char* const container_name,
  *   - Enables cpu.controller
  *   @input: cg_cname - cgroups fs path to a new cgroup
  *   @output: none
- *   @return: 0 - OK, <0 - FAILURE
  */
 static pouch_status create_pouch_cgroup(const char* const cg_cname,
                                         const char* const cname) {
@@ -90,7 +91,7 @@ pouch_status pouch_limit_cgroup(const char* const container_name,
 
   if (write(cname_fd, limitation, sizeof(limitation)) < 0) return -1;
   if (close(cname_fd) < 0) return -1;
-  printf(1, "Pouch: %s cgroup applied \n", container_name);
+  printf(stdout, "Pouch: %s cgroup applied \n", container_name);
   return SUCCESS_CODE;
 
 error:
@@ -102,7 +103,7 @@ pouch_status print_cinfo(const char* const container_name) {
   pouch_status status = SUCCESS_CODE;
 
   if ((status = read_from_cconf(container_name, &conf)) != SUCCESS_CODE) {
-    printf(1, "Pouch: %s container not found\n", container_name);
+    printf(stdout, "Pouch: %s container not found\n", container_name);
     goto done;
   }
 
@@ -110,11 +111,13 @@ pouch_status print_cinfo(const char* const container_name) {
   char cgmax[MAX_PATH_LENGTH];
   char cgstat[MAX_PATH_LENGTH];
 
-  strcpy(cgmax, "/cgroup/");
+  strcpy(cgmax, POUCH_CGROUPS_DIR);
+  strcat(cgmax, "/");
   strcat(cgmax, container_name);
   strcat(cgmax, "/cpu.max");
 
-  strcpy(cgstat, "/cgroup/");
+  strcpy(cgstat, POUCH_CGROUPS_DIR);
+  strcat(cgstat, "/");
   strcat(cgstat, container_name);
   strcat(cgstat, "/cpu.stat");
 
@@ -123,17 +126,17 @@ pouch_status print_cinfo(const char* const container_name) {
   int ppid = getppid();
 
   if (ppid == 1) {
-    printf(1, "     Pouch container- %s: connected\n", container_name);
+    printf(stdout, "     Pouch container- %s: connected\n", container_name);
   } else {
-    printf(1, "     Pouch container- %s: started\n", container_name);
+    printf(stdout, "     Pouch container- %s: started\n", container_name);
   }
 
-  printf(1, "tty - %s\n", conf.tty_name);
-  printf(1, "pid - %d\n", conf.pid);
-  printf(1, "     cgroups:\n");
+  printf(stdout, "tty - %s\n", conf.tty_name);
+  printf(stdout, "pid - %d\n", conf.pid);
+  printf(stdout, "     cgroups:\n");
 
   if (cpu_max_fd < 0 || cpu_stat_fd < 0) {
-    printf(1, "None.\n");
+    printf(stdout, "None.\n");
     status = SUCCESS_CODE;
     goto done;
   }
@@ -143,13 +146,13 @@ pouch_status print_cinfo(const char* const container_name) {
     status = ERROR_CODE;
     goto skip;
   }
-  printf(1, "cpu.max:     \n%s\n", buf);
+  printf(stdout, "cpu.max:     \n%s\n", buf);
   memset(buf, 0, sizeof(buf));
   if (read(cpu_stat_fd, buf, sizeof(buf)) < 0) {
     status = ERROR_CODE;
     goto skip;
   }
-  printf(1, "cpu.stat:     \n%s\n", buf);
+  printf(stdout, "cpu.stat:     \n%s\n", buf);
 
 skip:
   if (close(cpu_max_fd) < 0) {
@@ -159,7 +162,7 @@ skip:
     status = ERROR_CODE;
   }
   if (status != SUCCESS_CODE) {
-    printf(1, "Pouch: failed to read cgroup info\n");
+    printf(stdout, "Pouch: failed to read cgroup info\n");
     goto done;
   }
 
@@ -269,7 +272,6 @@ static pouch_status prepare_image_mount_path(const char* const container_name,
  *   - Finds a free tty to be attached
  *   @input: none
  *   @output: tty_name
- *   @return: 0 - OK, <0 - FAILURE
  */
 static pouch_status find_tty(char* const tty_name) {
   int i;
@@ -313,19 +315,19 @@ pouch_status pouch_container_start(const char* container_name,
   if (MUTEX_SUCCESS != mutex_init(&parent_mutex) ||
       MUTEX_SUCCESS !=
           mutex_init_named(&global_mutex, CONTAINERS_GLOBAL_LOCK_NAME)) {
-    printf(1, "Pouch: failed to create synchronization for container/global\n");
+    printf(stdout, "Pouch: failed to create synchronization for container/global\n");
     parent_status = POUCH_MUTEX_ERROR_CODE;
     goto parent_error_no_unlock;
   }
 
   // global mutex is held throughout the entire fork process.
   if (mutex_lock(&global_mutex) != MUTEX_SUCCESS) {
-    printf(1, "Pouch: failed to lock global mutex\n");
+    printf(stdout, "Pouch: failed to lock global mutex\n");
     parent_status = POUCH_MUTEX_ERROR_CODE;
     goto parent_error_no_unlock;
   }
   if (mutex_lock(&parent_mutex) != MUTEX_SUCCESS) {
-    printf(1, "Pouch: failed to lock parent mutex\n");
+    printf(stdout, "Pouch: failed to lock parent mutex\n");
     mutex_unlock(&global_mutex);
     parent_status = POUCH_MUTEX_ERROR_CODE;
     goto prep_error_unlock_global;
@@ -333,7 +335,7 @@ pouch_status pouch_container_start(const char* container_name,
 
   // Find tty name
   if ((parent_status = find_tty(tty_name)) != SUCCESS_CODE) {
-    printf(1, "Pouch: cannot create more containers\n");
+    printf(stdout, "Pouch: cannot create more containers\n");
     goto prep_error_locked;
   }
 
@@ -345,7 +347,7 @@ pouch_status pouch_container_start(const char* container_name,
 
   int cont_fd = open(container_name, 0);
   if (cont_fd < 0) {
-    printf(1, "Pouch: %s starting\n", container_name);
+    printf(stdout, "Pouch: %s starting\n", container_name);
     close(cont_fd);
   } else {
     printf(stderr, "Pouch: %s container is already started\n", container_name);
@@ -356,18 +358,18 @@ pouch_status pouch_container_start(const char* container_name,
   // Prepare cgroup name for container
   if ((parent_status = prepare_cgroup_cname(container_name, cg_cname)) !=
       SUCCESS_CODE) {
-    printf(1, "Pouch: failed to prepare cgroup name\n");
+    printf(stdout, "Pouch: failed to prepare cgroup name\n");
     goto prep_error_locked;
   }
   if ((parent_status = create_pouch_cgroup(cg_cname, container_name)) !=
       SUCCESS_CODE) {
-    printf(1, "Pouch: failed to create cgroup\n");
+    printf(stdout, "Pouch: failed to create cgroup\n");
     goto prep_error_locked;
   }
 
   // update cname in pouch conf
   if ((parent_status = write_to_pconf(tty_name, container_name)) < 0) {
-    printf(1, "Pouch: failed to write to pconf\n");
+    printf(stdout, "Pouch: failed to write to pconf\n");
     goto prep_error_locked;
   }
 
@@ -397,7 +399,7 @@ pouch_status pouch_container_start(const char* container_name,
       pouch_status child_status;
       // wait till the parent process finishes and releases the lock
       if (mutex_lock(&parent_mutex) != MUTEX_SUCCESS) {
-        printf(1, "Pouch: failed to lock parent mutex\n");
+        printf(stdout, "Pouch: failed to lock parent mutex\n");
         child_status = POUCH_MUTEX_ERROR_CODE;
         goto child_error;
       }
@@ -410,7 +412,7 @@ pouch_status pouch_container_start(const char* container_name,
       // "Child process - setting up namespaces for the container
       // Set up mount namespace.
       if (unshare(MOUNT_NS) < 0) {
-        printf(1, "Cannot create mount namespace\n");
+        printf(stdout, "Cannot create mount namespace\n");
         child_status = UNSAHRE_MNT_NS_FAILED_ERROR_CODE;
         goto child_error;
       }
@@ -507,7 +509,7 @@ pouch_status pouch_container_stop(const char* const container_name) {
   container_config conf = {0};
   int tty_fd = -1;
   if ((ret = read_from_cconf(container_name, &conf)) != SUCCESS_CODE) {
-    printf(1, "Pouch: %s container not found\n", container_name);
+    printf(stdout, "Pouch: %s container not found\n", container_name);
     return ret;
   }
   // Return the process to root cgroup.
@@ -559,7 +561,7 @@ pouch_status pouch_container_stop(const char* const container_name) {
   if (close(tty_fd) < 0) return TTY_CLOSE_ERROR_CODE;
   tty_fd = -1;
 
-  printf(1, "Pouch: %s destroyed\n", container_name);
+  printf(stdout, "Pouch: %s destroyed\n", container_name);
   return SUCCESS_CODE;
 
 error:
@@ -571,7 +573,7 @@ pouch_status pouch_container_connect(const char* const container_name) {
   pouch_status ret = SUCCESS_CODE;
   container_config conf;
   if ((ret = read_from_cconf(container_name, &conf)) != SUCCESS_CODE) {
-    printf(1, "Pouch: %s container not found\n", container_name);
+    printf(stdout, "Pouch: %s container not found\n", container_name);
     return ret;
   }
 
@@ -588,7 +590,7 @@ pouch_status pouch_container_connect(const char* const container_name) {
       return TTY_CONNECT_ERROR_CODE;
     }
   } else {
-    printf(1, "Pouch: %s is already connected\n", container_name);
+    printf(stdout, "Pouch: %s is already connected\n", container_name);
   }
   return SUCCESS_CODE;
 }

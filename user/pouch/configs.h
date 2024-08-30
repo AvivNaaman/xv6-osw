@@ -16,6 +16,7 @@ typedef struct container_config {
 } container_config;
 
 pouch_status init_pouch_conf();
+
 /*
  *   Write to pconf
  *   - pconf is a file that holds container name that is currently attached to a
@@ -24,7 +25,6 @@ pouch_status init_pouch_conf();
  * it
  *   - used for 'printing all containers list 'pouch list all' command
  *   @input: container_name, cgcname
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status write_to_pconf(const char* const ttyname, const char* const cname);
 
@@ -34,7 +34,6 @@ pouch_status write_to_pconf(const char* const ttyname, const char* const cname);
  * from pconf
  *   @input: ttyname
  *   @output: none
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status remove_from_pconf(char* ttyname);
 /*
@@ -42,7 +41,6 @@ pouch_status remove_from_pconf(char* ttyname);
  *   - get container name from provided tty name
  *   @input: ttyname
  *   @output: cname
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status container_name_by_tty(const char* const ttyname,
                                    char* const cname);
@@ -52,7 +50,6 @@ pouch_status container_name_by_tty(const char* const ttyname,
  *   - Reading container information from container's object
  *   @input: container_name
  *   @output: tty_name, pid
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status read_from_cconf(const char* const container_name,
                              container_config* conf);
@@ -62,6 +59,5 @@ pouch_status read_from_cconf(const char* const container_name,
  *   - Writing container information to container's object
  *   @input: container_name, tty_name, pid
  *   @output: none
- *   @return: 0 - OK, <0 - FAILURE
  */
 pouch_status write_to_cconf(const container_config* conf);

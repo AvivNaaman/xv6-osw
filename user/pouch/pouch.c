@@ -22,18 +22,17 @@
  *   - Creates root cgroup dir if not exists and mounts cgroups fs
  *   @input: none
  *   @output: none
- *   @return: 0 - OK, <0 - FAILURE
  */
 static pouch_status init_pouch_cgroup() {
   int cgroup_fd = -1;
   // check if cgoup filesystem already created
-  if ((cgroup_fd = open("/cgroup", O_RDWR)) < 0) {
-    if (mkdir("/cgroup") != 0) {
-      printf(1, "Pouch: Failed to create root cgroup.\n");
+  if ((cgroup_fd = open(POUCH_CGROUPS_DIR, O_RDWR)) < 0) {
+    if (mkdir(POUCH_CGROUPS_DIR) != 0) {
+      printf(stdout, "Pouch: Failed to create root cgroup.\n");
       return MOUNT_CGROUP_FAILED_ERROR_CODE;
     }
-    if (mount(0, "/cgroup", "cgroup") != 0) {
-      printf(1, "Pouch: Failed to mount cgroup fs.\n");
+    if (mount(0, POUCH_CGROUPS_DIR, "cgroup") != 0) {
+      printf(stdout, "Pouch: Failed to mount cgroup fs.\n");
       return MOUNT_CGROUP_FAILED_ERROR_CODE;
     }
   } else {
@@ -48,7 +47,6 @@ static pouch_status init_pouch_cgroup() {
  *   - Pouch operation based on command type
  *   @input: container_name,image_name,pouch_file,p_cmd
  *   @output: none
- *   @return: 0 - OK, != 0 - FAILURE
  */
 static pouch_status pouch_cmd(char* container_name, char* image_name,
                               enum p_cmd cmd) {
@@ -131,10 +129,11 @@ void print_help_outside_cnt() {
   print_pouch_build_help();
 }
 
-static pouch_status pouch_build_parse_args(const int argc, char* argv[],
-                                           char** const file_name,
-                                           char** const tag) {
-  char** options = &argv[2];
+static pouch_status pouch_build_parse_args(const int argc,
+                                           const char* const argv[],
+                                           const char** const file_name,
+                                           const char** const tag) {
+  const char* const* options = &argv[2];
   /* Parse build options: --file, --tag */
   while (options < argv + argc) {
     if (strcmp(*options, "--file") == 0) {
@@ -169,7 +168,7 @@ error:
   return ERROR_CODE;
 }
 
-int main(int argc, char* argv[]) {
+int main(const int argc, const char* const argv[]) {
   enum p_cmd cmd = START;
   char container_name[CNTNAMESIZE];
   char image_name[CNTNAMESIZE];
@@ -233,7 +232,7 @@ int main(int argc, char* argv[]) {
     } else if ((strcmp(argv[1], "disconnect")) == 0) {
       cmd = DISCONNECT;
       if (ppid != 1) {
-        printf(1, "Pouch: no container is connected\n");
+        printf(stdout, "Pouch: no container is connected\n");
         exit(1);
       }
     } else if ((strcmp(argv[1], "destroy")) == 0) {
@@ -258,12 +257,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (init_pouch_cgroup() < 0) {
-      printf(1, "Pouch: cgroup operation failed.\n");
+      printf(stdout, "Pouch: cgroup operation failed.\n");
       exit(1);
     }
 
     if (init_pouch_conf() < 0) {
-      printf(1, "Pouch: operation failed.\n");
+      printf(stdout, "Pouch: operation failed.\n");
       exit(1);
     }
 
@@ -271,13 +270,13 @@ int main(int argc, char* argv[]) {
     if (ppid == 1 && cmd != LIMIT && cmd != DISCONNECT /* && cmd != LIST*/
         && cmd != INFO && cmd != IMAGES && cmd != BUILD) {
       if (cmd == START) {
-        printf(1, "Nesting containers is not supported.\n");
+        printf(stdout, "Nesting containers is not supported.\n");
         goto error_exit;
       } else if (cmd == CONNECT) {
-        printf(1, "Nesting containers is not supported.\n");
+        printf(stdout, "Nesting containers is not supported.\n");
         goto error_exit;
       } else if (cmd == DESTROY) {
-        printf(1, "Container can't be destroyed while connected.\n");
+        printf(stdout, "Container can't be destroyed while connected.\n");
         goto error_exit;
       } else if (cmd == LIST) {
         if (print_help_inside_cnt() < 0) {
@@ -291,8 +290,8 @@ int main(int argc, char* argv[]) {
           goto error_exit;
         }
       } else if (cmd == BUILD) {
-        char* pouch_file_name = NULL;
-        char* image_tag = NULL;
+        const char* pouch_file_name = NULL;
+        const char* image_tag = NULL;
         if (pouch_build_parse_args(argc, argv, &pouch_file_name, &image_tag) !=
             SUCCESS_CODE) {
           printf(stderr, "\n");
@@ -303,7 +302,7 @@ int main(int argc, char* argv[]) {
           goto error_exit;
         }
       } else if (pouch_cmd(container_name, image_name, cmd) < 0) {
-        printf(1, "Pouch: operation failed.\n");
+        printf(stdout, "Pouch: operation failed.\n");
         goto error_exit;
       }
     }

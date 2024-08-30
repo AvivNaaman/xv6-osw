@@ -5,6 +5,8 @@
 #ifndef XV6_POUCH_H
 #define XV6_POUCH_H
 
+#define POUCH_CGROUPS_DIR "/cgroup"
+
 typedef enum p_cmd {
   START,
   CONNECT,

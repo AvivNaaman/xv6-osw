@@ -326,13 +326,13 @@ pouch_status pouch_print_images() {
   struct stat st;
 
   if ((fd = open(IMAGE_DIR, 0)) < 0) {
-    printf(2, "Cannot access the images dir, make sure the path %s exists\n",
+    printf(stderr, "Cannot access the images dir, make sure the path %s exists\n",
            IMAGE_DIR);
     return ERROR_IMAGE_DIR_INVALID_CODE;
   }
 
   if (fstat(fd, &st) < 0) {
-    printf(2, "cannot stat the images dir, make sure the path %s exists \n",
+    printf(stderr, "cannot stat the images dir, make sure the path %s exists \n",
            IMAGE_DIR);
     close(fd);
     return ERROR_IMAGE_NOT_FOUND_CODE;
@@ -352,21 +352,21 @@ pouch_status pouch_print_images() {
     memmove(p, de.name, DIRSIZ);
     p[DIRSIZ] = 0;
     if (stat(buf, &st) < 0) {
-      printf(1, "Cannot stat %s\n", buf);
+      printf(stdout, "Cannot stat %s\n", buf);
       continue;
     }
     strcpy(dir, fmtname(buf));
     if (strncmp(dir, ".", 1) != 0) {
       if (!printed_first) {
-        printf(1, "Pouch images available:\n");
+        printf(stdout, "Pouch images available:\n");
         printed_first = true;
       }
-      printf(1, "%s\n", dir);
+      printf(stdout, "%s\n", dir);
     }
   }
 
   if (!printed_first) {
-    printf(1, "No images available\n");
+    printf(stdout, "No images available\n");
   }
 
   close(fd);
