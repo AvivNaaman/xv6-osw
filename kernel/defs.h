@@ -72,18 +72,14 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-struct vfs_inode* obj_ialloc(uint, enum file_type);
 void obj_iinit(uint dev);
-struct vfs_inode* obj_iget(uint dev, uint inum);
 void obj_fsinit(uint dev);
 void obj_mkfs();
 struct vfs_inode* obj_initprocessroot(struct mount**);
 
 // fs.c
 void readsb(int dev, struct native_superblock* sb);
-struct vfs_inode* ialloc(uint, enum file_type);
 void iinit(uint dev);
-struct vfs_inode* iget(uint dev, uint inum);
 void fsinit(uint);
 struct vfs_inode* initprocessroot(struct mount**);
 

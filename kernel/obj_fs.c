@@ -73,65 +73,10 @@ void obj_mkfs() {
   init_objects_cache();
 }
 
-static const struct sb_ops obj_ops = {
-    .alloc_inode = obj_ialloc,
-    .get_inode = obj_iget,
-};
-
-void obj_fsinit(uint dev) {
-  struct vfs_inode *root_inode;
-  struct dirent de;
-  uint off = 0;
-
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  obj_iinit(dev);
-
-  /* Initiate root dir */
-  root_inode = obj_ialloc(dev, T_DIR);
-
-  /* Initiate inode for root dir */
-  strncpy(de.name, ".", DIRSIZ);
-  de.inum = root_inode->inum;
-
-  if (obj_writei(root_inode, (char *)&de, off, sizeof(de)) != sizeof(de)) {
-    panic("Couldn't create root dir in obj fs");
-  }
-
-  off += sizeof(de);
-  strncpy(de.name, "..", DIRSIZ);
-  de.inum = root_inode->inum;
-
-  if (obj_writei(root_inode, (char *)&de, off, sizeof(de)) != sizeof(de)) {
-    panic("Couldn't create root dir in obj fs");
-  }
-
-  vfs_sb->ops = &obj_ops;
-  vfs_sb->private = NULL;
-
-  /* For tries, TODO: need to move this logic to obj mkfs (and create one) */
-  //    ip = obj_ialloc(dev, T_FILE);
-  //    off += sizeof(de);
-  //    strncpy(de.name, "o1", DIRSIZ);
-  //    de.inum = ip->inum;
-  //    if (obj_writei(root_inode, (char *) &de, off, sizeof(de)) != sizeof(de))
-  //    {
-  //        panic("Couldn't create root dir in obj fs");
-  //    }
-  //
-  //    ip = obj_ialloc(dev, T_DIR);
-  //    off += sizeof(de);
-  //    strncpy(de.name, "o2", DIRSIZ);
-  //    de.inum = ip->inum;
-  //    if (obj_writei(root_inode, (char *) &de, off, sizeof(de)) != sizeof(de))
-  //    {
-  //        panic("Couldn't create root dir in obj fs");
-  //    }
-}
-
 // PAGEBREAK!
 //  Allocate an object and its corresponding inode object to the device object
 //  table. Returns an unlocked but allocated and referenced inode.
-struct vfs_inode *obj_ialloc(uint dev, file_type type) {
+static struct vfs_inode *obj_ialloc(struct vfs_superblock* vfs_sb, file_type type) {
   int inum = new_inode_number();
   char iname[INODE_NAME_LENGTH];
   struct obj_dinode di = {0};
@@ -151,7 +96,7 @@ struct vfs_inode *obj_ialloc(uint dev, file_type type) {
     panic("obj_ialloc: failed adding object to disk");
   }
 
-  ip = obj_iget(dev, inum);
+  ip = vfs_sb->ops->get_inode(vfs_sb, inum);
 
   return ip;
 }
@@ -184,7 +129,7 @@ void obj_iupdate(struct vfs_inode *vfs_ip) {
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-struct vfs_inode *obj_iget(uint dev, uint inum) {
+static struct vfs_inode *obj_iget(struct vfs_superblock* sb, uint inum) {
   struct obj_inode *ip, *empty;
 
   acquire(&obj_icache.lock);
@@ -192,7 +137,7 @@ struct vfs_inode *obj_iget(uint dev, uint inum) {
   // Is the inode already cached?
   empty = 0;
   for (ip = &obj_icache.inode[0]; ip < &obj_icache.inode[NINODE]; ip++) {
-    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.dev == dev &&
+    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb->dev == sb->dev &&
         ip->vfs_inode.inum == inum) {
       ip->vfs_inode.ref++;
       release(&obj_icache.lock);
@@ -205,9 +150,9 @@ struct vfs_inode *obj_iget(uint dev, uint inum) {
   // Recycle an inode cache entry.
   if (empty == 0) panic("iget: no inodes");
 
-  deviceget(dev);
+  deviceget(sb->dev);
   ip = empty;
-  ip->vfs_inode.dev = dev;
+  ip->vfs_inode.sb = sb;
   ip->vfs_inode.inum = inum;
   ip->vfs_inode.ref = 1;
   ip->vfs_inode.valid = 0;
@@ -233,6 +178,64 @@ struct vfs_inode *obj_iget(uint dev, uint inum) {
 
   return &ip->vfs_inode;
 }
+
+
+static const struct sb_ops obj_ops = {
+    .alloc_inode = obj_ialloc,
+    .get_inode = obj_iget,
+};
+
+void obj_fsinit(uint dev) {
+  struct vfs_inode *root_inode;
+  struct dirent de;
+  uint off = 0;
+
+  struct vfs_superblock *vfs_sb = getsuperblock(dev);
+  obj_iinit(dev);
+
+  /* Initiate root dir */
+  root_inode = vfs_sb->ops->alloc_inode(vfs_sb, T_DIR);
+
+  /* Initiate inode for root dir */
+  strncpy(de.name, ".", DIRSIZ);
+  de.inum = root_inode->inum;
+
+  if (obj_writei(root_inode, (char *)&de, off, sizeof(de)) != sizeof(de)) {
+    panic("Couldn't create root dir in obj fs");
+  }
+
+  off += sizeof(de);
+  strncpy(de.name, "..", DIRSIZ);
+  de.inum = root_inode->inum;
+
+  if (obj_writei(root_inode, (char *)&de, off, sizeof(de)) != sizeof(de)) {
+    panic("Couldn't create root dir in obj fs");
+  }
+
+  vfs_sb->ops = &obj_ops;
+  vfs_sb->private = NULL;
+  vfs_sb->dev = dev;
+
+  /* For tries, TODO: need to move this logic to obj mkfs (and create one) */
+  //    ip = obj_ialloc(dev, T_FILE);
+  //    off += sizeof(de);
+  //    strncpy(de.name, "o1", DIRSIZ);
+  //    de.inum = ip->inum;
+  //    if (obj_writei(root_inode, (char *) &de, off, sizeof(de)) != sizeof(de))
+  //    {
+  //        panic("Couldn't create root dir in obj fs");
+  //    }
+  //
+  //    ip = obj_ialloc(dev, T_DIR);
+  //    off += sizeof(de);
+  //    strncpy(de.name, "o2", DIRSIZ);
+  //    de.inum = ip->inum;
+  //    if (obj_writei(root_inode, (char *) &de, off, sizeof(de)) != sizeof(de))
+  //    {
+  //        panic("Couldn't create root dir in obj fs");
+  //    }
+}
+
 
 // Increment reference count for ip.
 // Returns ip to enable ip = idup(ip1) idiom.
@@ -316,7 +319,7 @@ void obj_iput(struct vfs_inode *vfs_ip) {
 
   ip->vfs_inode.ref--;
   if (ip->vfs_inode.ref == 0) {
-    deviceput(ip->vfs_inode.dev);
+    deviceput(ip->vfs_inode.sb->dev);
   }
   release(&obj_icache.lock);
 }
@@ -334,8 +337,8 @@ void obj_iunlockput(struct vfs_inode *ip) {
 // Caller must hold ip->lock.
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
-
-  st->dev = ip->vfs_inode.dev;
+  // TODO: Unite it too under VFS!
+  st->dev = ip->vfs_inode.sb->dev;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;
@@ -479,7 +482,7 @@ struct vfs_inode *obj_dirlookup(struct vfs_inode *vfs_dp, char *name,
       // entry matches path element
       if (poff) *poff = off;
       freevector(&direntryvec);
-      return obj_iget(dp->vfs_inode.dev, de.inum);
+      return dp->vfs_inode.sb->ops->get_inode(dp->vfs_inode.sb, de.inum);
     }
   }
   freevector(&direntryvec);
@@ -540,6 +543,6 @@ int obj_dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 //  Paths
 struct vfs_inode *obj_initprocessroot(struct mount **mnt) {
   *mnt = getinitialrootmount();
-
-  return obj_iget(ROOTDEV, ROOTINO);
+  struct vfs_superblock *sb = getsuperblock(ROOTDEV);
+  return obj_iget(sb, ROOTINO);
 }

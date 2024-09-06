@@ -191,45 +191,25 @@ void iinit(uint dev) {
 }
 
 
-static const struct sb_ops native_ops = {
-  .alloc_inode = ialloc,
-  .get_inode = iget,
-};
-
-void fsinit(uint dev) {
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  struct native_superblock *sb = (struct native_superblock *)kalloc();
-
-  readsb(dev, sb);
-  vfs_sb->private = sb;
-  vfs_sb->ops = &native_ops;
-  /* cprintf(
-      "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
-      "inodestart %d bmap start %d\n",
-      sb->size, sb->nblocks, sb->ninodes, sb->nlog, sb->logstart,
-      sb->inodestart, sb->bmapstart);*/
-}
-
 // PAGEBREAK!
 //  Allocate an inode on device dev.
 //  Mark it as allocated by  giving it type type.
 //  Returns an unlocked but allocated and referenced inode.
-struct vfs_inode *ialloc(uint dev, file_type type) {
+static struct vfs_inode *ialloc(struct vfs_superblock* vfs_sb, file_type type) {
   int inum;
   struct buf *bp;
   struct dinode *dip;
 
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = sb_private(vfs_sb);
   for (inum = 1; inum < sb->ninodes; inum++) {
-    bp = bread(dev, IBLOCK(inum, *sb));
+    bp = bread(vfs_sb->dev, IBLOCK(inum, *sb));
     dip = (struct dinode *)bp->data + inum % IPB;
     if (dip->vfs_dinode.type == 0) {  // a free inode
       memset(dip, 0, sizeof(*dip));
       dip->vfs_dinode.type = type;
       log_write(bp);  // mark it allocated on the disk
       brelse(bp);
-      return iget(dev, inum);
+      return vfs_sb->ops->get_inode(vfs_sb, inum);
     }
     brelse(bp);
   }
@@ -237,34 +217,11 @@ struct vfs_inode *ialloc(uint dev, file_type type) {
   panic("ialloc: no inodes");
 }
 
-// Copy a modified in-memory inode to disk.
-// Must be called after every change to an ip->xxx field
-// that lives on disk, since i-node cache is write-through.
-// Caller must hold ip->lock.
-void iupdate(struct vfs_inode *vfs_ip) {
-  struct buf *bp;
-  struct dinode *dip;
-  struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
-
-  struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.dev);
-  struct native_superblock *sb = sb_private(vfs_sb);
-
-  bp = bread(ip->vfs_inode.dev, IBLOCK(ip->vfs_inode.inum, *sb));
-  dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
-  dip->vfs_dinode.type = ip->vfs_inode.type;
-  dip->vfs_dinode.major = ip->vfs_inode.major;
-  dip->vfs_dinode.minor = ip->vfs_inode.minor;
-  dip->vfs_dinode.nlink = ip->vfs_inode.nlink;
-  dip->size = ip->size;
-  memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
-  log_write(bp);
-  brelse(bp);
-}
 
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-struct vfs_inode *iget(uint dev, uint inum) {
+static struct vfs_inode *iget(struct vfs_superblock* vfs_sb, uint inum) {
   struct inode *ip, *empty;
 
   acquire(&icache.lock);
@@ -272,7 +229,7 @@ struct vfs_inode *iget(uint dev, uint inum) {
   // Is the inode already cached?
   empty = 0;
   for (ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++) {
-    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.dev == dev &&
+    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb->dev == vfs_sb->dev &&
         ip->vfs_inode.inum == inum) {
       ip->vfs_inode.ref++;
       release(&icache.lock);
@@ -288,9 +245,9 @@ struct vfs_inode *iget(uint dev, uint inum) {
   // Recycle an inode cache entry.
   if (empty == 0) panic("iget: no inodes");
 
-  deviceget(dev);
+  deviceget(vfs_sb->dev);
   ip = empty;
-  ip->vfs_inode.dev = dev;
+  ip->vfs_inode.sb = vfs_sb;
   ip->vfs_inode.inum = inum;
   ip->vfs_inode.ref = 1;
   ip->vfs_inode.valid = 0;
@@ -311,6 +268,52 @@ struct vfs_inode *iget(uint dev, uint inum) {
 
   release(&icache.lock);
   return &ip->vfs_inode;
+}
+
+
+
+static const struct sb_ops native_ops = {
+  .alloc_inode = ialloc,
+  .get_inode = iget,
+};
+
+
+void fsinit(uint dev) {
+  struct vfs_superblock *vfs_sb = getsuperblock(dev);
+  struct native_superblock *sb = (struct native_superblock *)kalloc();
+
+  readsb(dev, sb);
+  vfs_sb->private = sb;
+  vfs_sb->ops = &native_ops;
+  vfs_sb->dev = dev;
+  /* cprintf(
+      "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
+      "inodestart %d bmap start %d\n",
+      sb->size, sb->nblocks, sb->ninodes, sb->nlog, sb->logstart,
+      sb->inodestart, sb->bmapstart);*/
+}
+// Copy a modified in-memory inode to disk.
+// Must be called after every change to an ip->xxx field
+// that lives on disk, since i-node cache is write-through.
+// Caller must hold ip->lock.
+void iupdate(struct vfs_inode *vfs_ip) {
+  struct buf *bp;
+  struct dinode *dip;
+  struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
+
+  struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.sb->dev);
+  struct native_superblock *sb = sb_private(vfs_sb);
+
+  bp = bread(ip->vfs_inode.sb->dev, IBLOCK(ip->vfs_inode.inum, *sb));
+  dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
+  dip->vfs_dinode.type = ip->vfs_inode.type;
+  dip->vfs_dinode.major = ip->vfs_inode.major;
+  dip->vfs_dinode.minor = ip->vfs_inode.minor;
+  dip->vfs_dinode.nlink = ip->vfs_inode.nlink;
+  dip->size = ip->size;
+  memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
+  log_write(bp);
+  brelse(bp);
 }
 
 // Increment reference count for ip.
@@ -334,10 +337,10 @@ void ilock(struct vfs_inode *vfs_ip) {
   acquiresleep(&ip->vfs_inode.lock);
 
   if (ip->vfs_inode.valid == 0) {
-    struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.dev);
+    struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.sb->dev);
     struct native_superblock *sb = sb_private(vfs_sb);
 
-    bp = bread(ip->vfs_inode.dev, IBLOCK(ip->vfs_inode.inum, *sb));
+    bp = bread(ip->vfs_inode.sb->dev, IBLOCK(ip->vfs_inode.inum, *sb));
     dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
     ip->vfs_inode.type = dip->vfs_dinode.type;
     ip->vfs_inode.major = dip->vfs_dinode.major;
@@ -384,7 +387,7 @@ void iput(struct vfs_inode *ip) {
 
   ip->ref--;
   if (ip->ref == 0) {
-    deviceput(ip->dev);
+    deviceput(ip->sb->dev);
   }
   release(&icache.lock);
 }
@@ -411,7 +414,7 @@ static uint bmap(struct inode *ip, uint bn) {
 
   if (bn < NDIRECT) {
     if ((addr = ip->addrs[bn]) == 0)
-      ip->addrs[bn] = addr = balloc(ip->vfs_inode.dev);
+      ip->addrs[bn] = addr = balloc(ip->vfs_inode.sb->dev);
     return addr;
   }
   bn -= NDIRECT;
@@ -419,11 +422,11 @@ static uint bmap(struct inode *ip, uint bn) {
   if (bn < NINDIRECT) {
     // Load indirect block, allocating if necessary.
     if ((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->vfs_inode.dev);
-    bp = bread(ip->vfs_inode.dev, addr);
+      ip->addrs[NDIRECT] = addr = balloc(ip->vfs_inode.sb->dev);
+    bp = bread(ip->vfs_inode.sb->dev, addr);
     a = (uint *)bp->data;
     if ((addr = a[bn]) == 0) {
-      a[bn] = addr = balloc(ip->vfs_inode.dev);
+      a[bn] = addr = balloc(ip->vfs_inode.sb->dev);
       log_write(bp);
     }
     brelse(bp);
@@ -446,19 +449,19 @@ static void itrunc(struct vfs_inode *vfs_ip) {
 
   for (i = 0; i < NDIRECT; i++) {
     if (ip->addrs[i]) {
-      bfree(ip->vfs_inode.dev, ip->addrs[i]);
+      bfree(ip->vfs_inode.sb->dev, ip->addrs[i]);
       ip->addrs[i] = 0;
     }
   }
 
   if (ip->addrs[NDIRECT]) {
-    bp = bread(ip->vfs_inode.dev, ip->addrs[NDIRECT]);
+    bp = bread(ip->vfs_inode.sb->dev, ip->addrs[NDIRECT]);
     a = (uint *)bp->data;
     for (j = 0; j < NINDIRECT; j++) {
-      if (a[j]) bfree(ip->vfs_inode.dev, a[j]);
+      if (a[j]) bfree(ip->vfs_inode.sb->dev, a[j]);
     }
     brelse(bp);
-    bfree(ip->vfs_inode.dev, ip->addrs[NDIRECT]);
+    bfree(ip->vfs_inode.sb->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
 
@@ -471,7 +474,7 @@ static void itrunc(struct vfs_inode *vfs_ip) {
 void stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
 
-  st->dev = ip->vfs_inode.dev;
+  st->dev = ip->vfs_inode.sb->dev;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;
@@ -501,7 +504,7 @@ int readi(struct vfs_inode *vfs_ip, uint off, uint n, vector *dstvector) {
 
   unsigned int dstoffset = 0;
   for (tot = 0; tot < n; tot += m, off += m, dstoffset += m) {
-    bp = bread(ip->vfs_inode.dev, bmap(ip, off / BSIZE));
+    bp = bread(ip->vfs_inode.sb->dev, bmap(ip, off / BSIZE));
     m = min(n - tot,
             BSIZE - off % BSIZE);  // NOLINT(build/include_what_you_use)
     memmove_into_vector_bytes(*dstvector, dstoffset,
@@ -533,7 +536,7 @@ int writei(struct vfs_inode *vfs_ip, char *src, uint off, uint n) {
   if (off + n > MAXFILE * BSIZE) return -1;
 
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
-    bp = bread(ip->vfs_inode.dev, bmap(ip, off / BSIZE));
+    bp = bread(ip->vfs_inode.sb->dev, bmap(ip, off / BSIZE));
     m = min(n - tot,  // NOLINT(build/include_what_you_use)
             BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
@@ -593,7 +596,7 @@ struct vfs_inode *dirlookup(struct vfs_inode *vfs_dp, char *name, uint *poff) {
       if (poff) *poff = off;
       inum = de.inum;
       freevector(&direntryvec);
-      return iget(dp->vfs_inode.dev, inum);
+      return dp->vfs_inode.sb->ops->get_inode(dp->vfs_inode.sb, inum);
     }
   }
   freevector(&direntryvec);
@@ -636,6 +639,15 @@ int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 // PAGEBREAK!
 //  Paths
 struct vfs_inode *initprocessroot(struct mount **mnt) {
-  *mnt = getinitialrootmount();
-  return iget(ROOTDEV, ROOTINO);
+  // TODO: Make it healthier
+  if (mnt != NULL) 
+  {
+    *mnt = getinitialrootmount();
+  }
+  // TODO: BUG BUG
+  // This is called during first process creation (in kernel mode, no context)
+  // but fsinit is called in first usermode process context (kernel mode).
+  // this causes *sb to be uninitialized and causes a banic once calling iget!
+  struct vfs_superblock *sb = getsuperblock(ROOTDEV);
+  return sb->ops->get_inode(sb, ROOTINO);
 }

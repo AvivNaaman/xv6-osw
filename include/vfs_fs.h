@@ -4,14 +4,17 @@
 #include "types.h"
 #include "stat.h"
 
+struct vfs_superblock;
+
 struct sb_ops {
-  struct vfs_inode *(*alloc_inode)(uint dev, file_type type);
-  struct vfs_inode *(*get_inode)(uint dev, uint inum);
+  struct vfs_inode *(*alloc_inode)(struct vfs_superblock* sb, file_type type);
+  struct vfs_inode *(*get_inode)(struct vfs_superblock* sb, uint inum);
 };
 
 struct vfs_superblock {
   void *private;
   const struct sb_ops* ops;
+  uint dev;
 };
 
 inline void *sb_private(struct vfs_superblock *sb) { return sb->private; }

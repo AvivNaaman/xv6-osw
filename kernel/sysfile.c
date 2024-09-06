@@ -151,7 +151,7 @@ int sys_link(void) {
 
   if ((dp = vfs_nameiparent(new, name)) == 0) goto bad;
   dp->i_op.ilock(dp);
-  if (dp->dev != ip->dev || dp->i_op.dirlink(dp, name, ip->inum) < 0) {
+  if (dp->sb->dev != ip->sb->dev || dp->i_op.dirlink(dp, name, ip->inum) < 0) {
     dp->i_op.iunlockput(dp);
     goto bad;
   }
@@ -260,12 +260,7 @@ static struct vfs_inode *createmount(char *path, short type, short major,
     return 0;
   }
 
-  if (IS_OBJ_DEVICE(dp->dev)) {
-    if ((ip = obj_ialloc(dp->dev, type)) == 0) panic("create: obj_ialloc");
-
-  } else {
-    if ((ip = ialloc(dp->dev, type)) == 0) panic("create: ialloc");
-  }
+  if ((ip = dp->sb->ops->alloc_inode(dp->sb, type)) == 0) panic("create: ialloc");
 
   ip->i_op.ilock(ip);
   ip->major = major;

@@ -136,7 +136,7 @@ struct inode_operations {
 
 // in-memory copy of an inode
 struct vfs_inode {
-  uint dev;               // Device number
+  struct vfs_superblock *sb;  // The vfs_superblock that this inode belongs to
   uint inum;              // Inode number
   int ref;                // Reference count
   struct sleeplock lock;  // protects everything below here

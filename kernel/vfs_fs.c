@@ -49,7 +49,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
 
   if (*path == '/') {
     curmount = mntdup(getrootmount());
-    ip = iget(ROOTDEV, ROOTINO);
+    ip = initprocessroot(NULL);
 
   } else {
     curmount = mntdup(myproc()->cwdmount);
@@ -104,10 +104,8 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       ip->i_op.iput(next);
       if (curmount->bind != 0) {
         next = curmount->bind->i_op.idup(curmount->bind);
-      } else if (IS_OBJ_DEVICE(curmount->dev)) {
-        next = obj_iget(curmount->dev, mntinum);
       } else {
-        next = iget(curmount->dev, mntinum);
+        next = ip->sb->ops->get_inode(ip->sb, mntinum);
       }
     }
 
