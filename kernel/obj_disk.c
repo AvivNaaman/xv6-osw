@@ -192,7 +192,6 @@ static void write_super_block() {
 }
 
 void init_obj_fs() {
-  struct vfs_superblock sb;
   // with real device, we would read the block form the disk.
   initsleeplock(&disklock, "disklock");
 
@@ -208,11 +207,6 @@ void init_obj_fs() {
   super_block.occupied_objects = 2;
   // Inode counter starts from 3, when 3 reserved to root dir object.
   super_block.last_inode = 2;
-  /* TODO(unknown): remove it? it is now meaningless since
-   * inode number can grow and shrink. analyze
-   * effect over vfs. */
-  sb.ninodes = get_object_table_size();
-  super_block.vfs_sb = sb;
   // Inode initializing
 
   // To keep consistency, we write the super block to the disk and sets the

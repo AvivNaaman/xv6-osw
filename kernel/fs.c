@@ -42,7 +42,7 @@ int isdirempty(struct vfs_inode *);
 static void itrunc(struct vfs_inode *ip);
 
 // Read the super block.
-void readsb(int dev, struct superblock *sb) {
+void readsb(int dev, struct native_superblock *sb) {
   struct buf *bp;
 
   bp = bread(dev, 1);
@@ -69,7 +69,7 @@ static uint balloc(uint dev) {
 
   bp = 0;
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
+  struct native_superblock *sb = sb_private(vfs_sb);
 
   for (b = 0; b < sb->size; b += BPB) {
     bp = bread(dev, BBLOCK(b, *sb));
@@ -94,7 +94,7 @@ static void bfree(int dev, uint b) {
   int bi, m;
 
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
+  struct native_superblock *sb = sb_private(vfs_sb);
   readsb(dev, sb);
   bp = bread(dev, BBLOCK(b, *sb));
   bi = b % BPB;
@@ -192,13 +192,14 @@ void iinit(uint dev) {
 
 void fsinit(uint dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
+  struct native_superblock *sb = (struct native_superblock *)kalloc();
 
   readsb(dev, sb);
+  vfs_sb->private = sb;
   /* cprintf(
       "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
       "inodestart %d bmap start %d\n",
-      sb->size, sb->nblocks, sb->vfs_sb.ninodes, sb->nlog, sb->logstart,
+      sb->size, sb->nblocks, sb->ninodes, sb->nlog, sb->logstart,
       sb->inodestart, sb->bmapstart);*/
 }
 
@@ -212,8 +213,8 @@ struct vfs_inode *ialloc(uint dev, short type) {
   struct dinode *dip;
 
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
-  for (inum = 1; inum < sb->vfs_sb.ninodes; inum++) {
+  struct native_superblock *sb = sb_private(vfs_sb);
+  for (inum = 1; inum < sb->ninodes; inum++) {
     bp = bread(dev, IBLOCK(inum, *sb));
     dip = (struct dinode *)bp->data + inum % IPB;
     if (dip->vfs_dinode.type == 0) {  // a free inode
@@ -239,7 +240,7 @@ void iupdate(struct vfs_inode *vfs_ip) {
   struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
 
   struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.dev);
-  struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
+  struct native_superblock *sb = sb_private(vfs_sb);
 
   bp = bread(ip->vfs_inode.dev, IBLOCK(ip->vfs_inode.inum, *sb));
   dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
@@ -327,7 +328,7 @@ void ilock(struct vfs_inode *vfs_ip) {
 
   if (ip->vfs_inode.valid == 0) {
     struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.dev);
-    struct superblock *sb = container_of(vfs_sb, struct superblock, vfs_sb);
+    struct native_superblock *sb = sb_private(vfs_sb);
 
     bp = bread(ip->vfs_inode.dev, IBLOCK(ip->vfs_inode.inum, *sb));
     dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;

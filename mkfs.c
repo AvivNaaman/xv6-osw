@@ -31,7 +31,7 @@ int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
 int nblocks;  // Number of data blocks
 
 int fsfd;
-struct superblock sb;
+struct native_superblock sb;
 char zeroes[BSIZE];
 uint freeinode = 1;
 uint freeblock;
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
   sb.size = xint(fssize);
   sb.nblocks = xint(nblocks);
-  sb.vfs_sb.ninodes = xint(NINODES);
+  sb.ninodes = xint(NINODES);
   sb.nlog = xint(nlog);
   sb.logstart = xint(2);
   sb.inodestart = xint(2 + nlog);

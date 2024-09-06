@@ -143,7 +143,7 @@ struct vfs_superblock *getsuperblock(uint dev) {
     if (dev_holder.loopdevs[loopdev].ref == 0) {
       panic("could not find superblock for device: device ref count is 0");
     } else {
-      return &dev_holder.loopdevs[loopdev].sb.vfs_sb;
+      return &dev_holder.loopdevs[loopdev].sb;
     }
   } else if (IS_OBJ_DEVICE(dev)) {
     uint objdev = DEV_TO_OBJ_DEVICE(dev);
@@ -153,10 +153,10 @@ struct vfs_superblock *getsuperblock(uint dev) {
     if (dev_holder.objdev[objdev].ref == 0) {
       panic("could not find obj superblock for device: device ref count is 0");
     } else {
-      return &dev_holder.objdev[objdev].sb.vfs_sb;
+      return &dev_holder.objdev[objdev].sb;
     }
   } else if (dev < NIDEDEVS) {
-    return &dev_holder.idesb[dev].vfs_sb;
+    return &dev_holder.idesb[dev];
   } else {
     cprintf("could not find superblock for device, dev: %d\n", dev);
     panic("could not find superblock for device");

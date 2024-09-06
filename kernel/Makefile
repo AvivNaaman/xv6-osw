@@ -2,6 +2,7 @@
 # Xv6 kernel Makefile
 ################################################
 
+include ../common.mk
 
 OBJS = \
 	kvector.o\

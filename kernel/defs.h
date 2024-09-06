@@ -17,7 +17,7 @@ struct rtcdate;
 struct spinlock;
 struct sleeplock;
 struct stat;
-struct superblock;
+struct native_superblock;
 struct cgroup;
 struct objsuperblock;
 struct vfs_inode;
@@ -79,7 +79,7 @@ void obj_mkfs();
 struct vfs_inode* obj_initprocessroot(struct mount**);
 
 // fs.c
-void readsb(int dev, struct superblock* sb);
+void readsb(int dev, struct native_superblock* sb);
 struct vfs_inode* ialloc(uint, short);
 void iinit(uint dev);
 struct vfs_inode* iget(uint dev, uint inum);

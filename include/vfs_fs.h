@@ -4,8 +4,10 @@
 #include "types.h"
 
 struct vfs_superblock {
-  uint ninodes;  // Number of inodes.
+  void *private;
 };
+
+inline void *sb_private(struct vfs_superblock *sb) { return sb->private; }
 
 // On-disk inode structure
 struct vfs_dinode {

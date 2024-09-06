@@ -4,6 +4,8 @@
 # Contains clean target to remove all user binaries and intermediate files.
 ################################################################################
 
+include ../common.mk
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 	$(call dump_objs,$@)

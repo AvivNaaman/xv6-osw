@@ -19,13 +19,13 @@
 #define NOBJDEVS (2)
 
 struct device {
-  struct superblock sb;
+  struct vfs_superblock sb;
   int ref;
   struct vfs_inode *ip;
 };
 
 struct obj_device {
-  struct objsuperblock sb;
+  struct vfs_superblock sb;
   int ref;
   struct vfs_inode *root_ip;
 };
@@ -33,7 +33,7 @@ struct obj_device {
 struct dev_holder_s {
   struct spinlock lock;  // protects loopdevs
   struct device loopdevs[NLOOPDEVS];
-  struct superblock idesb[NIDEDEVS];
+  struct vfs_superblock idesb[NIDEDEVS];
   struct obj_device objdev[NOBJDEVS];
 };
 extern struct dev_holder_s dev_holder;
