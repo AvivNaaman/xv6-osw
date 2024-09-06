@@ -190,12 +190,19 @@ void iinit(uint dev) {
   fsinit(dev);
 }
 
+
+static const struct sb_ops native_ops = {
+  .alloc_inode = ialloc,
+  .get_inode = iget,
+};
+
 void fsinit(uint dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = (struct native_superblock *)kalloc();
 
   readsb(dev, sb);
   vfs_sb->private = sb;
+  vfs_sb->ops = &native_ops;
   /* cprintf(
       "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
       "inodestart %d bmap start %d\n",
@@ -207,7 +214,7 @@ void fsinit(uint dev) {
 //  Allocate an inode on device dev.
 //  Mark it as allocated by  giving it type type.
 //  Returns an unlocked but allocated and referenced inode.
-struct vfs_inode *ialloc(uint dev, short type) {
+struct vfs_inode *ialloc(uint dev, file_type type) {
   int inum;
   struct buf *bp;
   struct dinode *dip;

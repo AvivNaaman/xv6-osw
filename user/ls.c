@@ -132,6 +132,9 @@ void ls(char *path) {
         printf(stdout, "%s %d %d\n", temp_name_buffer, st.type, st.size);
       }
       break;
+    default:
+      printf(stdout, "ls: unknown file type %d\n", st.type);
+      break;
   }
   close(fd);
 }

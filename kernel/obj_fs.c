@@ -73,11 +73,17 @@ void obj_mkfs() {
   init_objects_cache();
 }
 
-struct vfs_inode *obj_fsinit(uint dev) {
+static const struct sb_ops obj_ops = {
+    .alloc_inode = obj_ialloc,
+    .get_inode = obj_iget,
+};
+
+void obj_fsinit(uint dev) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
 
+  struct vfs_superblock *vfs_sb = getsuperblock(dev);
   obj_iinit(dev);
 
   /* Initiate root dir */
@@ -99,7 +105,8 @@ struct vfs_inode *obj_fsinit(uint dev) {
     panic("Couldn't create root dir in obj fs");
   }
 
-  return root_inode;
+  vfs_sb->ops = &obj_ops;
+  vfs_sb->private = NULL;
 
   /* For tries, TODO: need to move this logic to obj mkfs (and create one) */
   //    ip = obj_ialloc(dev, T_FILE);
@@ -124,7 +131,7 @@ struct vfs_inode *obj_fsinit(uint dev) {
 // PAGEBREAK!
 //  Allocate an object and its corresponding inode object to the device object
 //  table. Returns an unlocked but allocated and referenced inode.
-struct vfs_inode *obj_ialloc(uint dev, short type) {
+struct vfs_inode *obj_ialloc(uint dev, file_type type) {
   int inum = new_inode_number();
   char iname[INODE_NAME_LENGTH];
   struct obj_dinode di = {0};

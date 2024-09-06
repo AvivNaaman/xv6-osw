@@ -26,6 +26,7 @@ typedef struct kvec vector;
 struct devsw;
 struct dev_stat;
 struct cgroup_io_device_statistics_s;
+enum file_type;
 
 // bio.c
 void binit(void);
@@ -71,16 +72,16 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-struct vfs_inode* obj_ialloc(uint, short);
+struct vfs_inode* obj_ialloc(uint, enum file_type);
 void obj_iinit(uint dev);
 struct vfs_inode* obj_iget(uint dev, uint inum);
-struct vfs_inode* obj_fsinit(uint dev);
+void obj_fsinit(uint dev);
 void obj_mkfs();
 struct vfs_inode* obj_initprocessroot(struct mount**);
 
 // fs.c
 void readsb(int dev, struct native_superblock* sb);
-struct vfs_inode* ialloc(uint, short);
+struct vfs_inode* ialloc(uint, enum file_type);
 void iinit(uint dev);
 struct vfs_inode* iget(uint dev, uint inum);
 void fsinit(uint);

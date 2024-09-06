@@ -70,7 +70,7 @@ int getorcreateobjdevice() {
   release(&dev_holder.lock);
   objdevinit(emptydevice);
   /* Save a reference to the root in order to release it in umount. */
-  dev_holder.objdev[emptydevice].root_ip = obj_fsinit(OBJ_TO_DEV(emptydevice));
+  obj_fsinit(OBJ_TO_DEV(emptydevice));
   return OBJ_TO_DEV(emptydevice);
 }
 

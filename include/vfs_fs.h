@@ -2,9 +2,16 @@
 #define XV6_VFS_FS_H
 
 #include "types.h"
+#include "stat.h"
+
+struct sb_ops {
+  struct vfs_inode *(*alloc_inode)(uint dev, file_type type);
+  struct vfs_inode *(*get_inode)(uint dev, uint inum);
+};
 
 struct vfs_superblock {
   void *private;
+  const struct sb_ops* ops;
 };
 
 inline void *sb_private(struct vfs_superblock *sb) { return sb->private; }
