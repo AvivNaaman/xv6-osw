@@ -145,7 +145,7 @@ struct vfs_inode {
   short major;
   short minor;
   short nlink;
-  struct inode_operations i_op;
+  const struct inode_operations *i_op;
 };
 
 // table mapping major device number to

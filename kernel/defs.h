@@ -80,7 +80,8 @@ struct vfs_inode* obj_initprocessroot(struct mount**);
 // fs.c
 void readsb(int dev, struct native_superblock* sb);
 void iinit(uint dev);
-void fsinit(uint);
+void fsinit(uint dev);
+void fsstart(uint dev);
 struct vfs_inode* initprocessroot(struct mount**);
 
 // vfs_fs.c

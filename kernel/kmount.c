@@ -181,8 +181,8 @@ int umount(struct mount *mnt) {
 
   release(&mount_holder.mnt_list_lock);
 
-  if (oldbind) oldbind->i_op.iput(oldbind);
-  oldmountpoint->i_op.iput(oldmountpoint);
+  if (oldbind) oldbind->i_op->iput(oldbind);
+  oldmountpoint->i_op->iput(oldmountpoint);
   deviceput(olddev);
   return 0;
 }
@@ -231,7 +231,7 @@ static struct mount_list *shallowcopyactivemounts(struct mount **newcwdmount) {
     newentry->mnt.ref = 1;
     if (entry->mnt.mountpoint != 0) {
       newentry->mnt.mountpoint =
-          entry->mnt.mountpoint->i_op.idup(entry->mnt.mountpoint);
+          entry->mnt.mountpoint->i_op->idup(entry->mnt.mountpoint);
     } else {
       newentry->mnt.mountpoint = 0;
     }

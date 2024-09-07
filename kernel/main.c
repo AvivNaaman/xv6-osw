@@ -44,6 +44,7 @@ int main(void) {
   tvinit();                                    // trap vectors
   binit();                                     // buffer cache
   vfs_fileinit();                              // file table
+  iinit(ROOTDEV);                             // mount root file system
   objfsinit();                                 // objfs disk
   ideinit();                                   // disk
   startothers();                               // start other processors

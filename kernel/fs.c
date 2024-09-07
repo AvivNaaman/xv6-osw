@@ -200,6 +200,7 @@ static struct vfs_inode *ialloc(struct vfs_superblock* vfs_sb, file_type type) {
   struct buf *bp;
   struct dinode *dip;
 
+  // todo: assert fsstart() called
   struct native_superblock *sb = sb_private(vfs_sb);
   for (inum = 1; inum < sb->ninodes; inum++) {
     bp = bread(vfs_sb->dev, IBLOCK(inum, *sb));
@@ -217,13 +218,27 @@ static struct vfs_inode *ialloc(struct vfs_superblock* vfs_sb, file_type type) {
   panic("ialloc: no inodes");
 }
 
+static const struct inode_operations native_inode_ops = {
+.idup = &idup,
+  .iupdate = &iupdate,
+  .iput = &iput,
+  .dirlink = &dirlink,
+  .dirlookup = &dirlookup,
+  .ilock = &ilock,
+  .iunlock = &iunlock,
+  .readi = &readi,
+  .stati = &stati,
+  .writei = &writei,
+  .iunlockput = &iunlockput,
+  .isdirempty = &isdirempty
+};
 
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
 static struct vfs_inode *iget(struct vfs_superblock* vfs_sb, uint inum) {
   struct inode *ip, *empty;
-
+  // todo: assert fsstart() called
   acquire(&icache.lock);
 
   // Is the inode already cached?
@@ -253,18 +268,7 @@ static struct vfs_inode *iget(struct vfs_superblock* vfs_sb, uint inum) {
   ip->vfs_inode.valid = 0;
 
   /* Initiate inode operations for regular fs */
-  ip->vfs_inode.i_op.idup = &idup;
-  ip->vfs_inode.i_op.iupdate = &iupdate;
-  ip->vfs_inode.i_op.iput = &iput;
-  ip->vfs_inode.i_op.dirlink = &dirlink;
-  ip->vfs_inode.i_op.dirlookup = &dirlookup;
-  ip->vfs_inode.i_op.ilock = &ilock;
-  ip->vfs_inode.i_op.iunlock = &iunlock;
-  ip->vfs_inode.i_op.readi = &readi;
-  ip->vfs_inode.i_op.stati = &stati;
-  ip->vfs_inode.i_op.writei = &writei;
-  ip->vfs_inode.i_op.iunlockput = &iunlockput;
-  ip->vfs_inode.i_op.isdirempty = &isdirempty;
+  ip->vfs_inode.i_op = &native_inode_ops;
 
   release(&icache.lock);
   return &ip->vfs_inode;
@@ -282,7 +286,6 @@ void fsinit(uint dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = (struct native_superblock *)kalloc();
 
-  readsb(dev, sb);
   vfs_sb->private = sb;
   vfs_sb->ops = &native_ops;
   vfs_sb->dev = dev;
@@ -292,6 +295,17 @@ void fsinit(uint dev) {
       sb->size, sb->nblocks, sb->ninodes, sb->nlog, sb->logstart,
       sb->inodestart, sb->bmapstart);*/
 }
+
+// Must run from context of a process (uses sleep locks)
+void fsstart(uint dev) {
+  struct vfs_superblock *vfs_sb = getsuperblock(dev);
+  if (vfs_sb->private == 0) {
+    panic("fsstart: fsinit not called");
+  }
+  struct native_superblock *sb = sb_private(getsuperblock(dev));
+  readsb(dev, sb);
+}
+
 // Copy a modified in-memory inode to disk.
 // Must be called after every change to an ip->xxx field
 // that lives on disk, since i-node cache is write-through.
@@ -378,7 +392,7 @@ void iput(struct vfs_inode *ip) {
       // inode has no links and no other references: truncate and free.
       itrunc(ip);
       ip->type = 0;
-      ip->i_op.iupdate(ip);
+      ip->i_op->iupdate(ip);
       ip->valid = 0;
     }
   }
@@ -563,7 +577,7 @@ int isdirempty(struct vfs_inode *vfs_dp) {
   direntryvec = newvector(sizeof(de), 1);
 
   for (off = 2 * sizeof(de); off < dp->size; off += sizeof(de)) {
-    if (dp->vfs_inode.i_op.readi(&dp->vfs_inode, off, sizeof(de),
+    if (dp->vfs_inode.i_op->readi(&dp->vfs_inode, off, sizeof(de),
                                  &direntryvec) != sizeof(de))
       panic("isdirempty: readi");
     // vectormemcmp("isdirempty", direntryvec,0, (char *) &de, sizeof(de));

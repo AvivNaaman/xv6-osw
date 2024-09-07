@@ -53,39 +53,39 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
 
   } else {
     curmount = mntdup(myproc()->cwdmount);
-    ip = myproc()->cwd->i_op.idup(myproc()->cwd);
+    ip = myproc()->cwd->i_op->idup(myproc()->cwd);
   }
 
   while ((path = vfs_skipelem(path, name)) != 0) {
-    ip->i_op.ilock(ip);
+    ip->i_op->ilock(ip);
     if (ip->type != T_DIR) {
-      ip->i_op.iunlockput(ip);
+      ip->i_op->iunlockput(ip);
       mntput(curmount);
       return 0;
     }
     if (nameiparent && *path == '\0') {
       // Stop one level early.
-      ip->i_op.iunlock(ip);
+      ip->i_op->iunlock(ip);
       *mnt = curmount;
       return ip;
     }
 
-    if ((next = ip->i_op.dirlookup(ip, name, 0)) == 0) {
-      ip->i_op.iunlockput(ip);
+    if ((next = ip->i_op->dirlookup(ip, name, 0)) == 0) {
+      ip->i_op->iunlockput(ip);
       mntput(curmount);
       return 0;
     }
 
     mntinum = ip->inum;
-    ip->i_op.iunlockput(ip);
+    ip->i_op->iunlockput(ip);
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
         (curmount->dev != ROOTDEV) &&
         ((mntinum == ROOTINO) || (mntinum == OBJ_ROOTINO)) &&
         curmount->mountpoint != 0 &&
-        curmount->mountpoint->i_op.dirlookup != 0) {
+        curmount->mountpoint->i_op->dirlookup != NULL) {
       nextmount = mntdup(curmount->parent);
       mntinum =
-          curmount->mountpoint->i_op.dirlookup(curmount->mountpoint, "..", 0)
+          curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0)
               ->inum;
     } else {
       nextmount = mntlookup(next, curmount);
@@ -101,9 +101,9 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       mntput(curmount);
       curmount = nextmount;
 
-      ip->i_op.iput(next);
+      ip->i_op->iput(next);
       if (curmount->bind != 0) {
-        next = curmount->bind->i_op.idup(curmount->bind);
+        next = curmount->bind->i_op->idup(curmount->bind);
       } else {
         next = ip->sb->ops->get_inode(ip->sb, mntinum);
       }
@@ -113,7 +113,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
   }
 
   if (nameiparent) {
-    ip->i_op.iput(ip);
+    ip->i_op->iput(ip);
     mntput(curmount);
     return 0;
   }

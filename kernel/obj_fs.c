@@ -126,6 +126,21 @@ void obj_iupdate(struct vfs_inode *vfs_ip) {
   freevector(&disk_inode_vector);
 }
 
+static const struct inode_operations obj_inode_ops = {
+    .idup = &obj_idup,
+    .iupdate = &obj_iupdate,
+    .iput = &obj_iput,
+    .dirlink = &obj_dirlink,
+    .dirlookup = &obj_dirlookup,
+    .ilock = &obj_ilock,
+    .iunlock = &obj_iunlock,
+    .readi = &obj_readi,
+    .stati = &obj_stati,
+    .writei = &obj_writei,
+    .iunlockput = &obj_iunlockput,
+    .isdirempty = &obj_isdirempty,
+};
+
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
@@ -161,18 +176,7 @@ static struct vfs_inode *obj_iget(struct vfs_superblock* sb, uint inum) {
   file_name(ip->data_object_name, inum);
 
   /* Initiate inode operations for obj fs */
-  ip->vfs_inode.i_op.idup = &obj_idup;
-  ip->vfs_inode.i_op.iupdate = &obj_iupdate;
-  ip->vfs_inode.i_op.iput = &obj_iput;
-  ip->vfs_inode.i_op.dirlink = &obj_dirlink;
-  ip->vfs_inode.i_op.dirlookup = &obj_dirlookup;
-  ip->vfs_inode.i_op.ilock = &obj_ilock;
-  ip->vfs_inode.i_op.iunlock = &obj_iunlock;
-  ip->vfs_inode.i_op.readi = &obj_readi;
-  ip->vfs_inode.i_op.stati = &obj_stati;
-  ip->vfs_inode.i_op.writei = &obj_writei;
-  ip->vfs_inode.i_op.iunlockput = &obj_iunlockput;
-  ip->vfs_inode.i_op.isdirempty = &obj_isdirempty;
+  ip->vfs_inode.i_op = &obj_inode_ops;
 
   release(&obj_icache.lock);
 
@@ -439,7 +443,7 @@ int obj_isdirempty(struct vfs_inode *vfs_dp) {
     panic("obj_isdirempty failed getting inode data object size");
   }
   for (off = 2 * sizeof(de); off < size; off += sizeof(de)) {
-    if (dp->vfs_inode.i_op.readi(&dp->vfs_inode, off, sizeof(de),
+    if (dp->vfs_inode.i_op->readi(&dp->vfs_inode, off, sizeof(de),
                                  &direntryvec) != sizeof(de))
       panic("obj_isdirempty: readi");
     // vectormemcmp("obj_isdirempty",direntryvec,off,(char*)&de,sizeof(de));

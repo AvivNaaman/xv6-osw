@@ -63,7 +63,7 @@ void vfs_fileclose(struct vfs_file *f) {
   } else if (ff.type == FD_INODE) {
     mntput(ff.mnt);
     begin_op();
-    ff.ip->i_op.iput(ff.ip);
+    ff.ip->i_op->iput(ff.ip);
     end_op();
   }
 }
@@ -71,9 +71,9 @@ void vfs_fileclose(struct vfs_file *f) {
 // Get metadata about file f.
 int vfs_filestat(struct vfs_file *f, struct stat *st) {
   if (f->type == FD_INODE && f->ip != 0) {
-    f->ip->i_op.ilock(f->ip);
-    f->ip->i_op.stati(f->ip, st);
-    f->ip->i_op.iunlock(f->ip);
+    f->ip->i_op->ilock(f->ip);
+    f->ip->i_op->stati(f->ip, st);
+    f->ip->i_op->iunlock(f->ip);
     return 0;
   }
   return -1;
@@ -89,11 +89,11 @@ int vfs_fileread(struct vfs_file *f, int n, vector *dstvector) {
     return piperesult;
   }
   if (f->type == FD_INODE) {
-    f->ip->i_op.ilock(f->ip);
-    if ((r = f->ip->i_op.readi(f->ip, f->off, n, dstvector)) > 0) {
+    f->ip->i_op->ilock(f->ip);
+    if ((r = f->ip->i_op->readi(f->ip, f->off, n, dstvector)) > 0) {
       f->off += r;
     }
-    f->ip->i_op.iunlock(f->ip);
+    f->ip->i_op->iunlock(f->ip);
     return r;
   }
 
@@ -121,10 +121,10 @@ int vfs_filewrite(struct vfs_file *f, char *addr, int n) {
       if (n1 > max) n1 = max;
 
       begin_op();
-      f->ip->i_op.ilock(f->ip);
-      if ((r = f->ip->i_op.writei(f->ip, addr + i, f->off, n1)) > 0)
+      f->ip->i_op->ilock(f->ip);
+      if ((r = f->ip->i_op->writei(f->ip, addr + i, f->off, n1)) > 0)
         f->off += r;
-      f->ip->i_op.iunlock(f->ip);
+      f->ip->i_op->iunlock(f->ip);
       end_op();
 
       if (r < 0) break;

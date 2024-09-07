@@ -45,9 +45,10 @@ int getorcreatedevice(struct vfs_inode *ip) {
   }
 
   dev_holder.loopdevs[emptydevice].ref = 1;
-  dev_holder.loopdevs[emptydevice].ip = ip->i_op.idup(ip);
+  dev_holder.loopdevs[emptydevice].ip = ip->i_op->idup(ip);
   release(&dev_holder.lock);
   fsinit(LOOP_DEVICE_TO_DEV(emptydevice));
+  fsstart(LOOP_DEVICE_TO_DEV(emptydevice));
   return LOOP_DEVICE_TO_DEV(emptydevice);
 }
 
@@ -95,7 +96,7 @@ void deviceput(uint dev) {
     if (dev_holder.loopdevs[dev].ref == 1) {
       release(&dev_holder.lock);
 
-      dev_holder.loopdevs[dev].ip->i_op.iput(dev_holder.loopdevs[dev].ip);
+      dev_holder.loopdevs[dev].ip->i_op->iput(dev_holder.loopdevs[dev].ip);
       invalidateblocks(LOOP_DEVICE_TO_DEV(dev));
 
       acquire(&dev_holder.lock);
@@ -111,7 +112,7 @@ void deviceput(uint dev) {
       release(&dev_holder.lock);
 
       struct vfs_inode *root_ip = dev_holder.objdev[dev].root_ip;
-      root_ip->i_op.iput(root_ip);
+      root_ip->i_op->iput(root_ip);
 
       acquire(&dev_holder.lock);
       dev_holder.objdev[dev].root_ip = 0;

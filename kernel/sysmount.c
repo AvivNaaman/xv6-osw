@@ -59,7 +59,7 @@ int sys_umount(void) {
       return -1;
     }
 
-    mount_dir->i_op.iput(mount_dir);
+    mount_dir->i_op->iput(mount_dir);
 
     int res = umount(mnt);
     if (res != 0) {
@@ -96,12 +96,12 @@ int handle_objfs_mounts() {
     return -1;
   }
 
-  mount_dir->i_op.ilock(mount_dir);
+  mount_dir->i_op->ilock(mount_dir);
 
   int res = mount(mount_dir, 0, 0, parent);
-  mount_dir->i_op.iunlock(mount_dir);
+  mount_dir->i_op->iunlock(mount_dir);
   if (res != 0) {
-    mount_dir->i_op.iput(mount_dir);
+    mount_dir->i_op->iput(mount_dir);
   }
 
   mntput(parent);
@@ -195,27 +195,27 @@ int handle_bind_mounts() {
 
   if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
     cprintf("bad mount directory\n");
-    target_mount_dir->i_op.iput(target_mount_dir);
+    target_mount_dir->i_op->iput(target_mount_dir);
     end_op();
     return -1;
   }
 
   if (mount_dir->inum == ROOTINO) {
     cprintf("Can't mount root directory\n");
-    mount_dir->i_op.iput(mount_dir);
-    target_mount_dir->i_op.iput(target_mount_dir);
+    mount_dir->i_op->iput(mount_dir);
+    target_mount_dir->i_op->iput(target_mount_dir);
     mntput(parent);
     end_op();
     return -1;
   }
 
-  mount_dir->i_op.ilock(mount_dir);
+  mount_dir->i_op->ilock(mount_dir);
 
   if (mount_dir->type != T_DIR) {
     cprintf("mount point is not a directory\n");
-    mount_dir->i_op.iunlockput(mount_dir);
-    mount_dir->i_op.iput(mount_dir);
-    target_mount_dir->i_op.iput(target_mount_dir);
+    mount_dir->i_op->iunlockput(mount_dir);
+    mount_dir->i_op->iput(mount_dir);
+    target_mount_dir->i_op->iput(target_mount_dir);
     mntput(parent);
     end_op();
     return -1;
@@ -223,11 +223,11 @@ int handle_bind_mounts() {
 
   int res = mount(mount_dir, 0, target_mount_dir, parent);
 
-  mount_dir->i_op.iunlock(mount_dir);
+  mount_dir->i_op->iunlock(mount_dir);
 
   if (res != 0) {
-    mount_dir->i_op.iput(mount_dir);
-    target_mount_dir->i_op.iput(target_mount_dir);
+    mount_dir->i_op->iput(mount_dir);
+    target_mount_dir->i_op->iput(target_mount_dir);
   }
 
   mntput(parent);
@@ -255,25 +255,25 @@ int handle_nativefs_mounts() {
   }
 
   if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    device->i_op.iput(device);
+    device->i_op->iput(device);
     end_op();
     return -1;
   }
 
   if (mount_dir->inum == ROOTINO) {
-    device->i_op.iput(device);
-    mount_dir->i_op.iput(mount_dir);
+    device->i_op->iput(device);
+    mount_dir->i_op->iput(mount_dir);
     mntput(parent);
     end_op();
     return -1;
   }
 
-  device->i_op.ilock(device);
-  mount_dir->i_op.ilock(mount_dir);
+  device->i_op->ilock(device);
+  mount_dir->i_op->ilock(mount_dir);
 
   if (mount_dir->type != T_DIR) {
-    device->i_op.iunlockput(device);
-    mount_dir->i_op.iunlockput(mount_dir);
+    device->i_op->iunlockput(device);
+    mount_dir->i_op->iunlockput(mount_dir);
     mntput(parent);
     end_op();
     return -1;
@@ -281,12 +281,12 @@ int handle_nativefs_mounts() {
 
   int res = mount(mount_dir, device, 0, parent);
 
-  mount_dir->i_op.iunlock(mount_dir);
+  mount_dir->i_op->iunlock(mount_dir);
   if (res != 0) {
-    mount_dir->i_op.iput(mount_dir);
+    mount_dir->i_op->iput(mount_dir);
   }
 
-  device->i_op.iunlockput(device);
+  device->i_op->iunlockput(device);
   mntput(parent);
   end_op();
 

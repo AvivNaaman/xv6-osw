@@ -283,7 +283,7 @@ int fork(void) {
 
   for (i = 0; i < NOFILE; i++)
     if (curproc->ofile[i]) np->ofile[i] = vfs_filedup(curproc->ofile[i]);
-  np->cwd = curproc->cwd->i_op.idup(curproc->cwd);
+  np->cwd = curproc->cwd->i_op->idup(curproc->cwd);
   safestrcpy(np->cwdp, curproc->cwdp, sizeof(curproc->cwdp));
   np->cwdmount = mntdup(curproc->cwdmount);
 
@@ -385,7 +385,7 @@ void exit(int status) {
   }
 
   begin_op();
-  curproc->cwd->i_op.iput(curproc->cwd);
+  curproc->cwd->i_op->iput(curproc->cwd);
   end_op();
 
   mntput(curproc->cwdmount);
@@ -635,7 +635,7 @@ void forkret(void) {
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
     first = 0;
-    iinit(ROOTDEV);
+    fsstart(ROOTDEV);
     initlog(ROOTDEV);
     init_objfs_log();
     mntinit();  // initialize mounts
