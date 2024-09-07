@@ -19,15 +19,14 @@
 #define NOBJDEVS (2)
 
 struct device {
-  struct vfs_superblock sb;
+  struct vfs_inode *loop_node;
   int ref;
-  struct vfs_inode *ip;
+  struct vfs_superblock sb;
 };
 
 struct obj_device {
   struct vfs_superblock sb;
   int ref;
-  struct vfs_inode *root_ip;
 };
 
 struct dev_holder_s {

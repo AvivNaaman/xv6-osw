@@ -1,20 +1,22 @@
 #ifndef XV6_VFS_FS_H
 #define XV6_VFS_FS_H
 
-#include "types.h"
 #include "stat.h"
+#include "types.h"
 
 struct vfs_superblock;
 
 struct sb_ops {
-  struct vfs_inode *(*alloc_inode)(struct vfs_superblock* sb, file_type type);
-  struct vfs_inode *(*get_inode)(struct vfs_superblock* sb, uint inum);
+  struct vfs_inode *(*alloc_inode)(struct vfs_superblock *sb, file_type type);
+  struct vfs_inode *(*get_inode)(struct vfs_superblock *sb, uint inum);
+  void (*destroy)(struct vfs_superblock *sb);
 };
 
 struct vfs_superblock {
   void *private;
-  const struct sb_ops* ops;
+  const struct sb_ops *ops;
   uint dev;
+  struct vfs_inode *root_ip;
 };
 
 inline void *sb_private(struct vfs_superblock *sb) { return sb->private; }

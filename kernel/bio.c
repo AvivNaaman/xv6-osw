@@ -115,13 +115,13 @@ void devicerw(struct inode *device, struct buf *b) {
     vector read_result_vector;
     read_result_vector = newvector(BSIZE, 1);
     device->vfs_inode.i_op->readi(&device->vfs_inode, BSIZE * b->blockno, BSIZE,
-                                 &read_result_vector);
+                                  &read_result_vector);
     memmove_from_vector((char *)b->data, read_result_vector, 0, BSIZE);
     // vectormemcmp("devicerw", read_result_vector, 0, (char *) b->data, BSIZE);
     freevector(&read_result_vector);
   } else {
     device->vfs_inode.i_op->writei(&device->vfs_inode, (char *)b->data,
-                                  BSIZE * b->blockno, BSIZE);
+                                   BSIZE * b->blockno, BSIZE);
   }
   b->flags |= B_VALID;
   b->flags &= ~B_DIRTY;

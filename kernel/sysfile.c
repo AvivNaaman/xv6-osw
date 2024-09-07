@@ -260,7 +260,8 @@ static struct vfs_inode *createmount(char *path, short type, short major,
     return 0;
   }
 
-  if ((ip = dp->sb->ops->alloc_inode(dp->sb, type)) == 0) panic("create: ialloc");
+  if ((ip = dp->sb->ops->alloc_inode(dp->sb, type)) == 0)
+    panic("create: ialloc");
 
   ip->i_op->ilock(ip);
   ip->major = major;

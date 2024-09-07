@@ -190,12 +190,11 @@ void iinit(uint dev) {
   fsinit(dev);
 }
 
-
 // PAGEBREAK!
 //  Allocate an inode on device dev.
 //  Mark it as allocated by  giving it type type.
 //  Returns an unlocked but allocated and referenced inode.
-static struct vfs_inode *ialloc(struct vfs_superblock* vfs_sb, file_type type) {
+static struct vfs_inode *ialloc(struct vfs_superblock *vfs_sb, file_type type) {
   int inum;
   struct buf *bp;
   struct dinode *dip;
@@ -219,24 +218,23 @@ static struct vfs_inode *ialloc(struct vfs_superblock* vfs_sb, file_type type) {
 }
 
 static const struct inode_operations native_inode_ops = {
-.idup = &idup,
-  .iupdate = &iupdate,
-  .iput = &iput,
-  .dirlink = &dirlink,
-  .dirlookup = &dirlookup,
-  .ilock = &ilock,
-  .iunlock = &iunlock,
-  .readi = &readi,
-  .stati = &stati,
-  .writei = &writei,
-  .iunlockput = &iunlockput,
-  .isdirempty = &isdirempty
-};
+    .idup = &idup,
+    .iupdate = &iupdate,
+    .iput = &iput,
+    .dirlink = &dirlink,
+    .dirlookup = &dirlookup,
+    .ilock = &ilock,
+    .iunlock = &iunlock,
+    .readi = &readi,
+    .stati = &stati,
+    .writei = &writei,
+    .iunlockput = &iunlockput,
+    .isdirempty = &isdirempty};
 
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-static struct vfs_inode *iget(struct vfs_superblock* vfs_sb, uint inum) {
+static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
   struct inode *ip, *empty;
   // todo: assert fsstart() called
   acquire(&icache.lock);
@@ -274,13 +272,16 @@ static struct vfs_inode *iget(struct vfs_superblock* vfs_sb, uint inum) {
   return &ip->vfs_inode;
 }
 
-
+static void fsdestroy(struct vfs_superblock *vfs_sb) {
+  struct native_superblock *sb = sb_private(vfs_sb);
+  kfree((char *)sb);
+  vfs_sb->private = NULL;
+  vfs_sb->ops = NULL;
+  vfs_sb->root_ip->i_op->iput(vfs_sb->root_ip);
+}
 
 static const struct sb_ops native_ops = {
-  .alloc_inode = ialloc,
-  .get_inode = iget,
-};
-
+    .alloc_inode = ialloc, .get_inode = iget, .destroy = fsdestroy};
 
 void fsinit(uint dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
@@ -304,6 +305,7 @@ void fsstart(uint dev) {
   }
   struct native_superblock *sb = sb_private(getsuperblock(dev));
   readsb(dev, sb);
+  vfs_sb->root_ip = vfs_sb->ops->get_inode(vfs_sb, ROOTINO);
 }
 
 // Copy a modified in-memory inode to disk.
@@ -578,7 +580,7 @@ int isdirempty(struct vfs_inode *vfs_dp) {
 
   for (off = 2 * sizeof(de); off < dp->size; off += sizeof(de)) {
     if (dp->vfs_inode.i_op->readi(&dp->vfs_inode, off, sizeof(de),
-                                 &direntryvec) != sizeof(de))
+                                  &direntryvec) != sizeof(de))
       panic("isdirempty: readi");
     // vectormemcmp("isdirempty", direntryvec,0, (char *) &de, sizeof(de));
     memmove_from_vector((char *)&de, direntryvec, 0, sizeof(de));
@@ -653,12 +655,10 @@ int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 // PAGEBREAK!
 //  Paths
 struct vfs_inode *initprocessroot(struct mount **mnt) {
-  // TODO: Make it healthier
-  if (mnt != NULL) 
-  {
+  // TODO(AvivNaaman): Make it healthier
+  if (mnt != NULL) {
     *mnt = getinitialrootmount();
   }
-  // TODO: BUG BUG
   // This is called during first process creation (in kernel mode, no context)
   // but fsinit is called in first usermode process context (kernel mode).
   // this causes *sb to be uninitialized and causes a banic once calling iget!

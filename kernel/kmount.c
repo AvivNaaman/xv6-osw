@@ -171,6 +171,11 @@ int umount(struct mount *mnt) {
 
   struct vfs_inode *oldmountpoint = current->mnt.mountpoint;
   struct vfs_inode *oldbind = current->mnt.bind;
+  struct vfs_superblock *oldsb = NULL;
+  if (oldbind == NULL) {
+    oldsb = getsuperblock(current->mnt.dev);
+  }
+
   int olddev = current->mnt.dev;
   current->mnt.bind = 0;
   current->mnt.mountpoint = 0;
@@ -181,7 +186,13 @@ int umount(struct mount *mnt) {
 
   release(&mount_holder.mnt_list_lock);
 
-  if (oldbind) oldbind->i_op->iput(oldbind);
+  if (oldbind) {
+    oldbind->i_op->iput(oldbind);
+  } else {
+    if (oldsb->ops && oldsb->ops->destroy) {
+      oldsb->ops->destroy(oldsb);
+    }
+  }
   oldmountpoint->i_op->iput(oldmountpoint);
   deviceput(olddev);
   return 0;

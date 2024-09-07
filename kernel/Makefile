@@ -92,5 +92,5 @@ vectors.S: vectors.pl
 	perl vectors.pl > vectors.S
 
 clean:
-	rm -f $(OBJS) $(ALL) 
+	rm -f $(OBJS) $(ALL) initcode.out
 	rm -rf *.o *.d *.asm *.sym

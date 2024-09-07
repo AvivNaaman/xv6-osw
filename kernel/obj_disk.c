@@ -460,4 +460,3 @@ void set_store_offset(uint new_offset) {
 uint device_size() { return super_block.storage_device_size; }
 
 uint occupied_bytes() { return super_block.bytes_occupied; }
-

@@ -32,7 +32,7 @@ int getorcreatedevice(struct vfs_inode *ip) {
   for (int i = 0; i < NLOOPDEVS; i++) {
     if (dev_holder.loopdevs[i].ref == 0 && emptydevice == -1) {
       emptydevice = i;
-    } else if (dev_holder.loopdevs[i].ip == ip) {
+    } else if (dev_holder.loopdevs[i].loop_node == ip) {
       dev_holder.loopdevs[i].ref++;
       release(&dev_holder.lock);
       return LOOP_DEVICE_TO_DEV(i);
@@ -45,7 +45,8 @@ int getorcreatedevice(struct vfs_inode *ip) {
   }
 
   dev_holder.loopdevs[emptydevice].ref = 1;
-  dev_holder.loopdevs[emptydevice].ip = ip->i_op->idup(ip);
+  dev_holder.loopdevs[emptydevice].loop_node = ip->i_op->idup(ip);
+
   release(&dev_holder.lock);
   fsinit(LOOP_DEVICE_TO_DEV(emptydevice));
   fsstart(LOOP_DEVICE_TO_DEV(emptydevice));
@@ -93,14 +94,18 @@ void deviceput(uint dev) {
   if (IS_LOOP_DEVICE(dev)) {
     dev = DEV_TO_LOOP_DEVICE(dev);
     acquire(&dev_holder.lock);
+    if (dev_holder.loopdevs[dev].ref == 0) {
+      panic("deviceput: device ref count is 0");
+    }
     if (dev_holder.loopdevs[dev].ref == 1) {
       release(&dev_holder.lock);
 
-      dev_holder.loopdevs[dev].ip->i_op->iput(dev_holder.loopdevs[dev].ip);
+      dev_holder.loopdevs[dev].loop_node->i_op->iput(
+          dev_holder.loopdevs[dev].loop_node);
       invalidateblocks(LOOP_DEVICE_TO_DEV(dev));
 
       acquire(&dev_holder.lock);
-      dev_holder.loopdevs[dev].ip = 0;
+      dev_holder.loopdevs[dev].loop_node = NULL;
     }
     dev_holder.loopdevs[dev].ref--;
     release(&dev_holder.lock);
@@ -111,11 +116,11 @@ void deviceput(uint dev) {
     if (dev_holder.objdev[dev].ref == 1) {
       release(&dev_holder.lock);
 
-      struct vfs_inode *root_ip = dev_holder.objdev[dev].root_ip;
+      struct vfs_inode *root_ip = dev_holder.objdev[dev].sb.root_ip;
       root_ip->i_op->iput(root_ip);
 
       acquire(&dev_holder.lock);
-      dev_holder.objdev[dev].root_ip = 0;
+      dev_holder.objdev[dev].sb.root_ip = NULL;
     }
     release(&dev_holder.lock);
   }
@@ -132,7 +137,7 @@ struct vfs_inode *getinodefordevice(uint dev) {
     return 0;
   }
 
-  return dev_holder.loopdevs[dev].ip;
+  return dev_holder.loopdevs[dev].loop_node;
 }
 
 struct vfs_superblock *getsuperblock(uint dev) {
@@ -167,7 +172,7 @@ struct vfs_superblock *getsuperblock(uint dev) {
 int doesbackdevice(struct vfs_inode *ip) {
   acquire(&dev_holder.lock);
   for (int i = 0; i < NLOOPDEVS; i++) {
-    if (dev_holder.loopdevs[i].ip == ip) {
+    if (dev_holder.loopdevs[i].loop_node == ip) {
       release(&dev_holder.lock);
       return 1;
     }

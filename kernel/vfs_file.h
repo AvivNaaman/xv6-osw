@@ -137,11 +137,11 @@ struct inode_operations {
 // in-memory copy of an inode
 struct vfs_inode {
   struct vfs_superblock *sb;  // The vfs_superblock that this inode belongs to
-  uint inum;              // Inode number
-  int ref;                // Reference count
-  struct sleeplock lock;  // protects everything below here
-  int valid;              // inode has been read from disk?
-  short type;             // copy of disk inode
+  uint inum;                  // Inode number
+  int ref;                    // Reference count
+  struct sleeplock lock;      // protects everything below here
+  int valid;                  // inode has been read from disk?
+  short type;                 // copy of disk inode
   short major;
   short minor;
   short nlink;

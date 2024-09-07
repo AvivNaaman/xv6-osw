@@ -14,11 +14,11 @@ typedef enum file_type {
 } file_type;
 
 struct stat {
-  file_type type;   // Type of file
-  int dev;      // File system's disk device
-  uint ino;     // Inode number
-  short nlink;  // Number of links to file
-  uint size;    // Size of file in bytes
+  file_type type;  // Type of file
+  int dev;         // File system's disk device
+  uint ino;        // Inode number
+  short nlink;     // Number of links to file
+  uint size;       // Size of file in bytes
 };
 
 #endif /* XV6_STAT_H */
