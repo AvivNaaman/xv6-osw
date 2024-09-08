@@ -234,7 +234,8 @@ static const struct inode_operations native_inode_ops = {
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
+static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
+                                       bool ref_device) {
   struct inode *ip, *empty;
   // todo: assert fsstart() called
   acquire(&icache.lock);
@@ -256,9 +257,13 @@ static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
     empty = ip;
 
   // Recycle an inode cache entry.
-  if (empty == 0) panic("iget: no inodes");
+  if (empty == 0) {
+    panic("iget: no inodes");
+  }
 
-  deviceget(vfs_sb->dev);
+  if (ref_device) {
+    deviceget(vfs_sb->dev);
+  }
   ip = empty;
   ip->vfs_inode.sb = vfs_sb;
   ip->vfs_inode.inum = inum;
@@ -272,12 +277,18 @@ static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
   return &ip->vfs_inode;
 }
 
+static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
+  return iget_internal(vfs_sb, inum, true);
+}
+
+static void iput_internal(struct vfs_inode *ip, bool ref_device);
+
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
   struct native_superblock *sb = sb_private(vfs_sb);
   kfree((char *)sb);
   vfs_sb->private = NULL;
   vfs_sb->ops = NULL;
-  vfs_sb->root_ip->i_op->iput(vfs_sb->root_ip);
+  iput_internal(vfs_sb->root_ip, false);
 }
 
 static const struct sb_ops native_ops = {
@@ -305,7 +316,7 @@ void fsstart(uint dev) {
   }
   struct native_superblock *sb = sb_private(getsuperblock(dev));
   readsb(dev, sb);
-  vfs_sb->root_ip = vfs_sb->ops->get_inode(vfs_sb, ROOTINO);
+  vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, false);
 }
 
 // Copy a modified in-memory inode to disk.
@@ -384,7 +395,7 @@ void iunlock(struct vfs_inode *ip) {
 // to it, free the inode (and its content) on disk.
 // All calls to iput() must be inside a transaction in
 // case it has to free the inode.
-void iput(struct vfs_inode *ip) {
+static void iput_internal(struct vfs_inode *ip, bool ref_device) {
   acquiresleep(&ip->lock);
   if (ip->valid && ip->nlink == 0) {
     acquire(&icache.lock);
@@ -402,11 +413,13 @@ void iput(struct vfs_inode *ip) {
   acquire(&icache.lock);
 
   ip->ref--;
-  if (ip->ref == 0) {
+  if (ip->ref == 0 && ref_device) {
     deviceput(ip->sb->dev);
   }
   release(&icache.lock);
 }
+
+void iput(struct vfs_inode *ip) { iput_internal(ip, true); }
 
 // Common idiom: unlock, then put.
 void iunlockput(struct vfs_inode *ip) {

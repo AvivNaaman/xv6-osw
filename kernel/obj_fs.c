@@ -72,12 +72,14 @@ void obj_mkfs() {
   init_obj_fs();
   init_objects_cache();
 }
+static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
+                                           bool ref_device);
 
 // PAGEBREAK!
 //  Allocate an object and its corresponding inode object to the device object
 //  table. Returns an unlocked but allocated and referenced inode.
-static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
-                                    file_type type) {
+static struct vfs_inode *obj_ialloc_internal(struct vfs_superblock *vfs_sb,
+                                             file_type type, bool ref_device) {
   int inum = new_inode_number();
   char iname[INODE_NAME_LENGTH];
   struct obj_dinode di = {0};
@@ -97,9 +99,14 @@ static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
     panic("obj_ialloc: failed adding object to disk");
   }
 
-  ip = vfs_sb->ops->get_inode(vfs_sb, inum);
+  ip = obj_iget_internal(vfs_sb, inum, ref_device);
 
   return ip;
+}
+
+static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
+                                    file_type type) {
+  return obj_ialloc_internal(vfs_sb, type, true);
 }
 
 // Copy a modified in-memory inode to disk.
@@ -145,7 +152,8 @@ static const struct inode_operations obj_inode_ops = {
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
+static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
+                                           bool ref_device) {
   struct obj_inode *ip, *empty;
 
   acquire(&obj_icache.lock);
@@ -166,7 +174,6 @@ static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
   // Recycle an inode cache entry.
   if (empty == 0) panic("iget: no inodes");
 
-  deviceget(sb->dev);
   ip = empty;
   ip->vfs_inode.sb = sb;
   ip->vfs_inode.inum = inum;
@@ -176,6 +183,10 @@ static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
   ip->data_object_name[0] = 0;
   file_name(ip->data_object_name, inum);
 
+  if (ref_device) {
+    deviceget(sb->dev);
+  }
+
   /* Initiate inode operations for obj fs */
   ip->vfs_inode.i_op = &obj_inode_ops;
 
@@ -184,9 +195,17 @@ static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
   return &ip->vfs_inode;
 }
 
+static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
+  return obj_iget_internal(sb, inum, true);
+}
+
+void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device);
+
 static void obj_fsdestroy(struct vfs_superblock *vfs_sb) {
   struct vfs_inode *root_ip = vfs_sb->root_ip;
-  root_ip->i_op->iput(root_ip);
+  obj_iput_internal(root_ip, false);
+  vfs_sb->root_ip = NULL;
+  vfs_sb->ops = NULL;
 }
 
 static const struct sb_ops obj_ops = {
@@ -208,7 +227,7 @@ void obj_fsinit(uint dev) {
   vfs_sb->private = NULL;
 
   /* Initiate root dir */
-  root_inode = vfs_sb->ops->alloc_inode(vfs_sb, T_DIR);
+  root_inode = obj_ialloc_internal(vfs_sb, T_DIR, false);
 
   /* Initiate inode for root dir */
   strncpy(de.name, ".", DIRSIZ);
@@ -310,7 +329,7 @@ void obj_iunlock(struct vfs_inode *ip) {
 // to it, free the inode (and its content) on disk.
 // All calls to iput() must be inside a transaction in
 // case it has to free the inode.
-void obj_iput(struct vfs_inode *vfs_ip) {
+void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
 
   acquiresleep(&ip->vfs_inode.lock);
@@ -329,11 +348,13 @@ void obj_iput(struct vfs_inode *vfs_ip) {
   acquire(&obj_icache.lock);
 
   ip->vfs_inode.ref--;
-  if (ip->vfs_inode.ref == 0) {
+  if (ip->vfs_inode.ref == 0 && ref_device) {
     deviceput(ip->vfs_inode.sb->dev);
   }
   release(&obj_icache.lock);
 }
+
+void obj_iput(struct vfs_inode *ip) { obj_iput_internal(ip, true); }
 
 // Common idiom: unlock, then put.
 void obj_iunlockput(struct vfs_inode *ip) {
@@ -548,12 +569,4 @@ int obj_dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 
   freevector(&direntryvec);
   return 0;
-}
-
-// PAGEBREAK!
-//  Paths
-struct vfs_inode *obj_initprocessroot(struct mount **mnt) {
-  *mnt = getinitialrootmount();
-  struct vfs_superblock *sb = getsuperblock(ROOTDEV);
-  return obj_iget(sb, ROOTINO);
 }

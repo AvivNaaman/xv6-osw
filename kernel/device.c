@@ -100,6 +100,11 @@ void deviceput(uint dev) {
     if (dev_holder.loopdevs[dev].ref == 1) {
       release(&dev_holder.lock);
 
+      struct vfs_superblock *oldsb = getsuperblock(LOOP_DEVICE_TO_DEV(dev));
+      // first teardown the filesystem
+      oldsb->ops->destroy(oldsb);
+
+      // only then the backing inode
       dev_holder.loopdevs[dev].loop_node->i_op->iput(
           dev_holder.loopdevs[dev].loop_node);
       invalidateblocks(LOOP_DEVICE_TO_DEV(dev));
@@ -112,16 +117,15 @@ void deviceput(uint dev) {
   } else if (IS_OBJ_DEVICE(dev)) {
     dev = DEV_TO_OBJ_DEVICE(dev);
     acquire(&dev_holder.lock);
-    dev_holder.objdev[dev].ref--;
     if (dev_holder.objdev[dev].ref == 1) {
       release(&dev_holder.lock);
 
-      struct vfs_inode *root_ip = dev_holder.objdev[dev].sb.root_ip;
-      root_ip->i_op->iput(root_ip);
+      struct vfs_superblock *oldsb = getsuperblock(OBJ_TO_DEV(dev));
+      oldsb->ops->destroy(oldsb);
 
       acquire(&dev_holder.lock);
-      dev_holder.objdev[dev].sb.root_ip = NULL;
     }
+    dev_holder.objdev[dev].ref--;
     release(&dev_holder.lock);
   }
 }

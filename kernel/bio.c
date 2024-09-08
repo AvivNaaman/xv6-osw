@@ -128,9 +128,11 @@ void devicerw(struct inode *device, struct buf *b) {
 }
 
 void brw(struct buf *b) {
-  struct vfs_inode *device;
-  if ((device = getinodefordevice(b->dev)) != 0) {
-    struct inode *i_device = container_of(device, struct inode, vfs_inode);
+  struct vfs_inode *inode_of_loop_dev;
+  // Support for loop devices
+  if ((inode_of_loop_dev = getinodefordevice(b->dev)) != 0) {
+    struct inode *i_device =
+        container_of(inode_of_loop_dev, struct inode, vfs_inode);
 
     devicerw(i_device, b);
   } else {

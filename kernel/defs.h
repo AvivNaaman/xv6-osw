@@ -75,7 +75,6 @@ int vfs_filewrite(struct vfs_file*, char*, int n);
 void obj_iinit(uint dev);
 void obj_fsinit(uint dev);
 void obj_mkfs();
-struct vfs_inode* obj_initprocessroot(struct mount**);
 
 // fs.c
 void readsb(int dev, struct native_superblock* sb);

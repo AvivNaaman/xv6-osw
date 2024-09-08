@@ -19,7 +19,9 @@ struct vfs_superblock {
   struct vfs_inode *root_ip;
 };
 
-inline void *sb_private(struct vfs_superblock *sb) { return sb->private; }
+static inline void *sb_private(struct vfs_superblock *sb) {
+  return sb->private;
+}
 
 // On-disk inode structure
 struct vfs_dinode {
