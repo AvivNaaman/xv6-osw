@@ -91,21 +91,21 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       nextmount = mntlookup(next, curmount);
     }
 
-    if (nextmount != 0) {
-      if (IS_OBJ_DEVICE(nextmount->dev)) {
-        mntinum = OBJ_ROOTINO;
-      } else {
-        mntinum = ROOTINO;
-      }
-
+    if (nextmount != NULL) {
       mntput(curmount);
       curmount = nextmount;
-
       ip->i_op->iput(next);
-      if (curmount->bind != 0) {
+
+      if (curmount->bind != NULL) {
         next = curmount->bind->i_op->idup(curmount->bind);
       } else {
-        next = ip->sb->ops->get_inode(ip->sb, mntinum);
+        if (IS_OBJ_DEVICE(nextmount->dev)) {
+          mntinum = OBJ_ROOTINO;
+        } else {
+          mntinum = ROOTINO;
+        }
+        struct vfs_superblock *sb = getsuperblock(curmount->dev);
+        next = sb->ops->get_inode(sb, mntinum);
       }
     }
 
