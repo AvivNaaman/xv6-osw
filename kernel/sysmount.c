@@ -97,10 +97,18 @@ int handle_objfs_mounts() {
   }
 
   mount_dir->i_op->ilock(mount_dir);
+  struct device* dev = getorcreateobjdevice();
+  if (dev == NULL) {
+    mount_dir->i_op->iunlockput(mount_dir);
+    mntput(parent);
+    end_op();
+    return -1;
+  }
 
-  int res = mount(mount_dir, 0, 0, parent);
+  int res = mount(mount_dir, dev, 0, parent);
   mount_dir->i_op->iunlock(mount_dir);
   if (res != 0) {
+    deviceput(dev);
     mount_dir->i_op->iput(mount_dir);
   }
 
@@ -240,7 +248,7 @@ int handle_nativefs_mounts() {
   char *device_path;
   char *mount_path;
   struct mount *parent;
-  struct vfs_inode *device, *mount_dir;
+  struct vfs_inode *loop_inode, *mount_dir;
   if (argstr(0, &device_path) < 0 || argstr(1, &mount_path) < 0) {
     cprintf("badargs\n");
     return -1;
@@ -248,45 +256,46 @@ int handle_nativefs_mounts() {
 
   begin_op();
 
-  if ((device = vfs_namei(device_path)) == 0) {
+  if ((loop_inode = vfs_namei(device_path)) == 0) {
     cprintf("bad device_path\n");
     end_op();
     return -1;
   }
 
   if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    device->i_op->iput(device);
+    loop_inode->i_op->iput(loop_inode);
     end_op();
     return -1;
   }
 
   if (mount_dir->inum == ROOTINO) {
-    device->i_op->iput(device);
+    loop_inode->i_op->iput(loop_inode);
     mount_dir->i_op->iput(mount_dir);
     mntput(parent);
     end_op();
     return -1;
   }
 
-  device->i_op->ilock(device);
+  loop_inode->i_op->ilock(loop_inode);
   mount_dir->i_op->ilock(mount_dir);
 
   if (mount_dir->type != T_DIR) {
-    device->i_op->iunlockput(device);
+    loop_inode->i_op->iunlockput(loop_inode);
     mount_dir->i_op->iunlockput(mount_dir);
     mntput(parent);
     end_op();
     return -1;
   }
-
-  int res = mount(mount_dir, device, 0, parent);
+  struct device* dev = getorcreateloopdevice(loop_inode);
+  int res = mount(mount_dir, dev, 0, parent);
 
   mount_dir->i_op->iunlock(mount_dir);
   if (res != 0) {
+    deviceput(dev);
     mount_dir->i_op->iput(mount_dir);
   }
 
-  device->i_op->iunlockput(device);
+  loop_inode->i_op->iunlockput(loop_inode);
   mntput(parent);
   end_op();
 

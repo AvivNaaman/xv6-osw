@@ -23,6 +23,7 @@ struct objsuperblock;
 struct vfs_inode;
 struct vfs_file;
 struct device;
+struct vfs_superblock;
 typedef struct kvec vector;
 struct devsw;
 struct dev_stat;
@@ -50,13 +51,12 @@ void tty_detach(struct vfs_inode* ip);
 int tty_gets(struct vfs_inode* ip, int command);
 
 // device.c
-struct device* getorcreatedevice(struct vfs_inode*);
+struct device* getorcreateloopdevice(struct vfs_inode*);
 struct device* getorcreateobjdevice();
 struct device* getorcreateidedevice(uint ide_port);
 void deviceput(struct device*);
 void deviceget(struct device*);
 struct vfs_inode* getinodefordevice(struct device*);
-struct vfs_superblock* getsuperblock(struct device*);
 void devinit(void);
 int doesbackdevice(struct vfs_inode*);
 
@@ -73,15 +73,15 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-void obj_iinit(struct device* dev);
-void obj_fsinit(struct device* dev);
+void obj_iinit();
+void obj_fsinit(struct vfs_superblock*, struct device*);
 void obj_mkfs();
 
 // fs.c
-void readsb(struct device* dev, struct native_superblock* sb);
-void iinit(struct device* dev);
-void fsinit(struct device* dev);
-void fsstart(struct device* dev);
+void readsb(struct vfs_superblock* sb, struct native_superblock *t);
+void iinit(struct vfs_superblock*, struct device*);
+void fsinit(struct vfs_superblock *, struct device *);
+void fsstart(struct vfs_superblock*);
 struct vfs_inode* initprocessroot(struct mount**);
 
 // vfs_fs.c
@@ -100,8 +100,8 @@ int handle_bind_mounts();
 int handle_nativefs_mounts();
 
 // mount.c
-void mntinit(void);
-int mount(struct vfs_inode*, struct vfs_inode*, struct vfs_inode*,
+void mntinit(struct device* root_dev);
+int mount(struct vfs_inode*, struct device*, struct vfs_inode*,
           struct mount*);
 int umount(struct mount*);
 struct mount* getrootmount(void);
@@ -160,7 +160,7 @@ void lapicstartap(uchar, uint);
 void microdelay(int);
 
 // log.c
-void initlog(struct device* dev);
+void initlog(struct vfs_superblock* dev);
 void log_write(struct buf*);
 void begin_op();
 void end_op();
@@ -169,7 +169,7 @@ void end_op();
 void mount_nsinit(void);
 void mount_nsput(struct mount_ns*);
 struct mount_ns* mount_nsdup(struct mount_ns*);
-struct mount_ns* newmount_ns(void);
+struct mount_ns* getinitmountns();
 struct mount_ns* copymount_ns(void);
 
 // mp.c
@@ -178,7 +178,7 @@ void mpinit(void);
 
 // namespace.c
 void namespaceinit(void);
-struct nsproxy* emptynsproxy(void);
+struct nsproxy* initnsproxy(void);
 struct nsproxy* namespacedup(struct nsproxy*);
 void namespaceput(struct nsproxy*);
 int unshare(int nstype);

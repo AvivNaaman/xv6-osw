@@ -14,7 +14,7 @@
  */
 
 const uint initial_objects_table_bytes =
-    INITIAL_OBJECT_TABLE_SIZE * sizeof(ObjectsTableEntry);
+    INITIAL_OBJECT_TABLE_SIZE * sizeof(objects_table_entry);
 
 /**
  * Tests that the metadata values inside the super block are intiialized
@@ -56,7 +56,7 @@ TEST(table_object) {
   ASSERT_NO_ERR(object_size(OBJECT_TABLE_ID, &size));
   ASSERT_UINT_EQ(initial_objects_table_bytes, size);
 
-  ObjectsTableEntry table[INITIAL_OBJECT_TABLE_SIZE];
+  objects_table_entry table[INITIAL_OBJECT_TABLE_SIZE];
   ASSERT_NO_ERR(get_object(OBJECT_TABLE_ID, &table, 0));
   for (size_t i = 3; i < INITIAL_OBJECT_TABLE_SIZE; ++i) {
     EXPECT_FALSE(table[i].occupied);
@@ -223,7 +223,7 @@ TEST(add_to_full_table) {
 }
 
 uint find_object_offset(const char* object_name) {
-  ObjectsTableEntry table[INITIAL_OBJECT_TABLE_SIZE];
+  objects_table_entry table[INITIAL_OBJECT_TABLE_SIZE];
   get_object(OBJECT_TABLE_ID, &table, 0);
   uint address = -1;
   for (uint i = 0; i < INITIAL_OBJECT_TABLE_SIZE; ++i) {

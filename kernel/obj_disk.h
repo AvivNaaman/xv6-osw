@@ -105,7 +105,7 @@ typedef struct {
   uint disk_offset;
   uint size;
   int occupied;
-} ObjectsTableEntry;
+} objects_table_entry;
 
 int obj_id_cmp(const char* p, const char* q);
 uint obj_id_bytes(const char* object_id);
@@ -193,7 +193,7 @@ uint get_objects_table_index(const char* name, uint* output);
 /**
  * Returns the specific entry from the objects table.
  */
-ObjectsTableEntry* objects_table_entry(uint offset);
+objects_table_entry* get_objects_table_entry(uint offset);
 
 /**
  * Writes a specfic objects table entry to the disk.

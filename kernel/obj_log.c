@@ -98,13 +98,13 @@ static void finish_rewrite_event() {
     freevector(&templogbookvector);
   }
   // change the new object id inside the table
-  memmove(objects_table_entry(logbook.rewrite_event.new_object_table_index)
+  memmove(get_objects_table_entry(logbook.rewrite_event.new_object_table_index)
               ->object_id,
           logbook.rewrite_event.old_object_id,
           obj_id_bytes(logbook.rewrite_event.old_object_id));
   flush_objects_table_entry(logbook.rewrite_event.new_object_table_index);
   // delete the old object from the table
-  objects_table_entry(logbook.rewrite_event.old_object_table_index)->occupied =
+  get_objects_table_entry(logbook.rewrite_event.old_object_table_index)->occupied =
       0;
   flush_objects_table_entry(logbook.rewrite_event.old_object_table_index);
   set_occupied_objects(occupied_objects() - 1);

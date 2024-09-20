@@ -151,7 +151,7 @@ int sys_link(void) {
 
   if ((dp = vfs_nameiparent(new, name)) == 0) goto bad;
   dp->i_op->ilock(dp);
-  if (dp->sb->dev != ip->sb->dev || dp->i_op->dirlink(dp, name, ip->inum) < 0) {
+  if (dp->sb != ip->sb || dp->i_op->dirlink(dp, name, ip->inum) < 0) {
     dp->i_op->iunlockput(dp);
     goto bad;
   }

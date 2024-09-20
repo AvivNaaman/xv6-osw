@@ -9,9 +9,9 @@
 #include "vfs_file.h"
 #include "x86.h"
 
-static void objfsinit(void);
-
 static void startothers(void);
+
+static void startfs(void);
 
 static void mpmain(void) __attribute__((noreturn));
 
@@ -42,22 +42,28 @@ int main(void) {
   uartinit();                         // serial port
   pinit();                            // process table
   tvinit();                           // trap vectors
-  binit();                            // buffer cache
-  vfs_fileinit();                     // file table
-  devinit();                          // initialize devices
-  if (getorcreateidedevice(ROOTDEV) == NULL)
-    panic("Failed to mount /!");               // mount root file system
-  objfsinit();                                 // objfs disk
-  ideinit();                                   // disk
+
+  namespaceinit();  // initialize namespaces
+  startfs();        // initialize file system components
+
   startothers();                               // start other processors
   kinit2(P2V(4 * 1024 * 1024), P2V(PHYSTOP));  // must come after startothers()
   cginit();         // cgroup table, must come before userinit()
   userinit();       // first user process
-  namespaceinit();  // initialize namespaces
   mpmain();         // finish this processor's setup
 }
 
-static void objfsinit(void) { obj_mkfs(); }
+static void startfs() {
+  binit();                            // buffer cache
+  vfs_fileinit();                     // file table
+  devinit();                          // initialize devices
+  ideinit();                                   // disk
+  struct device* root_dev = getorcreateidedevice(ROOTDEV);  // mount root file system
+  if (root_dev == NULL)
+    panic("Failed to start root dev!");               // mount root file system
+  mntinit(root_dev);                  // mount root file system
+  obj_mkfs();
+}
 
 // Other CPUs jump here from entryother.S.
 static void mpenter(void) {

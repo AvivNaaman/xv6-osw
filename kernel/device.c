@@ -21,10 +21,6 @@ void devinit(void) {
   }
 }
 
-void objdevinit(struct device* dev) {
-  memcpy(&dev->sb, memory_storage, sizeof(dev->sb));
-}
-
 static void destroy_dev_default(struct device* dev) { dev->private = NULL; }
 
 static void destory_loop_dev(struct device* dev) {
@@ -43,7 +39,7 @@ static const struct device_ops loop_device_ops = {
     .destroy = &destory_loop_dev,
 };
 
-struct device* getorcreatedevice(struct vfs_inode* ip) {
+struct device* getorcreateloopdevice(struct vfs_inode* ip) {
   acquire(&dev_holder.lock);
   struct device* empty_device = NULL;
   for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
@@ -74,9 +70,6 @@ struct device* getorcreatedevice(struct vfs_inode* ip) {
   empty_device->private = ip->i_op->idup(ip);
   empty_device->ops = &loop_device_ops;
 
-  fsinit(empty_device);
-  fsstart(empty_device);
-
   return empty_device;
 }
 
@@ -104,9 +97,6 @@ struct device* getorcreateobjdevice() {
   empty_device->private = NULL;
 
   release(&dev_holder.lock);
-  objdevinit(empty_device);
-  /* Save a reference to the root in order to release it in umount. */
-  obj_fsinit(empty_device);
   return empty_device;
 }
 
@@ -121,10 +111,6 @@ void deviceput(struct device* d) {
   if (d->ref == 1) {
     release(&dev_holder.lock);
 
-    // first teardown the filesystem
-    struct vfs_superblock* oldsb = &d->sb;
-    oldsb->ops->destroy(oldsb);
-
     // now we can destroy the device.
     d->ops->destroy(d);
 
@@ -132,7 +118,6 @@ void deviceput(struct device* d) {
     d->type = DEVICE_TYPE_NONE;
     d->private = NULL;
     d->ops = NULL;
-    memset(&d->sb, 0, sizeof(d->sb));
 
     acquire(&dev_holder.lock);
   }
@@ -148,14 +133,6 @@ struct vfs_inode* getinodefordevice(struct device* dev) {
   }
 
   return (struct vfs_inode*)dev->private;
-}
-
-struct vfs_superblock* getsuperblock(struct device* d) {
-  if (d->ref == 0 || d->type == DEVICE_TYPE_NONE) {
-    cprintf("getsuperblock: device not found or invalid %d\n", d->id);
-    return 0;
-  }
-  return &d->sb;
 }
 
 int doesbackdevice(struct vfs_inode* ip) {
@@ -202,8 +179,6 @@ struct device* getorcreateidedevice(uint ide_port) {
   empty_device->type = DEVICE_TYPE_IDE;
   empty_device->private = (void*)ide_port;
   empty_device->ops = &default_device_ops;
-
-  iinit(empty_device);
 
   return empty_device;
 }

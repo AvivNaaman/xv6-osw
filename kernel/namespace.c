@@ -57,10 +57,10 @@ static struct nsproxy* allocnsproxyinternal(void) {
   panic("out of nsproxy objects");
 }
 
-struct nsproxy* emptynsproxy(void) {
+struct nsproxy* initnsproxy(void) {
   acquire(&namespacetable.lock);
   struct nsproxy* result = allocnsproxyinternal();
-  result->mount_ns = newmount_ns();
+  result->mount_ns = getinitmountns();
   result->pid_ns = pid_ns_new(0);
   release(&namespacetable.lock);
 

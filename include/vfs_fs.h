@@ -9,13 +9,14 @@ struct vfs_superblock;
 struct sb_ops {
   struct vfs_inode *(*alloc_inode)(struct vfs_superblock *sb, file_type type);
   struct vfs_inode *(*get_inode)(struct vfs_superblock *sb, uint inum);
+  void (*start)(struct vfs_superblock *sb);
   void (*destroy)(struct vfs_superblock *sb);
 };
 
 struct vfs_superblock {
+  int ref;
   void *private;
   const struct sb_ops *ops;
-  struct device *dev;
   struct vfs_inode *root_ip;
 };
 

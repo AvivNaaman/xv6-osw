@@ -2,6 +2,7 @@
 #define XV6_MOUNT_H
 
 #include "types.h"
+#include "vfs_fs.h"
 
 struct mount {
   /* Pointer to the parent mount, if any. */
@@ -11,8 +12,8 @@ struct mount {
   struct vfs_inode *mountpoint;
   /* Reference count. */
   int ref;
-  /* Associated device, applicable only for native-fs and obj-fs mounts. */
-  struct device *dev;
+  /* Associated filesystem, for mounted devices or pseudo filesystems. */
+  struct vfs_superblock sb;
   /* Associated inode, applicable only for bind mounts. */
   struct vfs_inode *bind;
 };

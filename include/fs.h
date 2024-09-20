@@ -25,6 +25,12 @@ struct native_superblock {
   uint ninodes;     // Number of inodes.
 };
 
+// private data for native superblock.
+struct native_superblock_private {
+  struct native_superblock sb;
+  struct device *dev;
+};
+
 #define NDIRECT 12
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)

@@ -13,6 +13,7 @@
 #include "types.h"
 #include "wstatus.h"
 #include "x86.h"
+#include "mount.h"
 
 struct {
   struct spinlock lock;
@@ -160,7 +161,7 @@ void userinit(void) {
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = initprocessroot(&p->cwdmount);
   safestrcpy(p->cwdp, "/", sizeof(p->cwdp));
-  p->nsproxy = emptynsproxy();
+  p->nsproxy = initnsproxy();
 
   p->ns_pid = pid_ns_next_pid(p->nsproxy->pid_ns);
 
@@ -635,14 +636,9 @@ void forkret(void) {
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
     first = 0;
-
-    struct device *root_dev = getorcreateidedevice(ROOTDEV);
-    fsstart(root_dev);
-    initlog(root_dev);
-    deviceput(root_dev);
-
+    struct vfs_superblock *sb = &getinitialrootmount()->sb;
+    sb->ops->start(sb);
     init_objfs_log();
-    mntinit();  // initialize mounts
   }
 
   // Return to "caller", actually trapret (see allocproc).
