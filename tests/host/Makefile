@@ -1,5 +1,7 @@
 MAKEFILE_DIRECTORY := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
+include ../../common.mk
+
 HOST_TESTS_EXECUTABLES = kvector_tests obj_fs_tests
 
 all: $(HOST_TESTS_EXECUTABLES)

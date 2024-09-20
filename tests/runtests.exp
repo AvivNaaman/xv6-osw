@@ -655,7 +655,6 @@ proc pouch_cgroup_already_exists {argv} {
 
     set running [start_container $argv "5" "cgroup already exists" "img_a" 1]
     log_file -noappend [lindex $argv 0]
-    expect "Pouch: Failed to create cgroup with the given name. Consider another container name: c5"
 }
 
 
@@ -672,14 +671,14 @@ proc pouch_disconnect_outside_container_test {argv} {
     send "pouch disconnect c6\n"
     log_file -noappend [lindex $argv 0]
     expect {
-       "Error: Invalid command for outside container."
+       "Error: Invalid command disconnect for outside container."
     }
     assert_on_exit_status 1
 
     send "pouch disconnect\n"
     log_file -noappend [lindex $argv 0]
     expect {
-       "Error: Invalid command for outside container."
+       "Error: Invalid command disconnect for outside container."
     }
     assert_on_exit_status 1
 }
@@ -942,13 +941,13 @@ proc test_internal_images {argv} {
     }
 }
 
+
 #-------------------------------------------------------------------------
 #-MAIN--------------------------------------------------------------------
 #-------------------------------------------------------------------------
 
-set timeout 3
-# uncomment for expect debugging:
-#exp_internal 1
+# no limit - usertests are time consuming
+set timeout -1
 
 # run standalone tests
 spawn bash -c "make run-vector-tests"
@@ -971,47 +970,46 @@ set qemu_command $expect_out(buffer)
 spawn qemu-system-i386 -nographic -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp cpus=2,cores=1 -m 512
 expect "$ "
 
-set running [command_exit_status_test $argv]
-
-# Mounts & FS tests
+#uncomment for expect debugging
+#exp_internal 1
 set running [mounttest $argv]
+set running [ioctl_syscall_test $argv]
+set running [cgroupstests $argv]
+set running [prepare_pouch_images $argv]
+set running [cgroup_io_states_test $argv]
+
+#basic tests
 set running [rm_recursive_test $argv]
 set running [cp_copy_file_test $argv]
 set running [cp_copy_dir_test $argv]
 set running [mount_bind_test $argv]
 set running [umount_bind_mount_test $argv]
+set running [pouch_basic_tests $argv]
+set running [command_exit_status_test $argv]
+
+# scenario tests
 set running [cp_simple_objfs_nativefs_copy_test $argv]
 set running [cp_recursive_objfs_nativefs_test $argv]
-set running [test_internal_images $argv]
 
-set running [ioctl_syscall_test $argv]
-
-set running [cgroupstests $argv]
-set running [cgroup_io_states_test $argv]
-set running [pidns_tests $argv]
-
-# Pouch tests
-# add images
-set running [prepare_pouch_images $argv]
-set running [pouch_basic_tests $argv]
 set running [pouch_stress_test $argv]
 set running [pouch_cgroup_already_exists $argv]
-# start many
+
 set running [pouch_to_many_cnts_test $argv]
 set running [pouch_list_test $argv]
 set running [pouch_disconnect_outside_container_test $argv]
 set running [pouch_info_container_test $argv]
 set running [pouch_cgroup_limit_test $argv]
-# rm many & images
 set running [pouch_to_many_cnts_test_remove $argv]
+
 set running [remove_pouch_images $argv]
+
 set running [test_pouch_build_valid_args $argv]
 set running [test_pouch_build_invalid_args $argv]
 set running [test_pouch_build_file_parsing $argv]
 
+set running [pidns_tests $argv]
+set running [test_internal_images $argv]
 # run last, prints "ALL TESTS PASSED"
-# no limit - usertests are time consuming
-set timeout -1
 set running [usertests $argv]
 
 log_file

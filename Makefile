@@ -33,7 +33,7 @@ UPROGS=\
 	_umount\
 	_timer\
 	_cpu\
-    _pouch\
+    pouch/_pouch\
     _ctrl_grp\
     _demo_pid_ns\
     _demo_mount_ns
