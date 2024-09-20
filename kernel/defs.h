@@ -22,6 +22,7 @@ struct cgroup;
 struct objsuperblock;
 struct vfs_inode;
 struct vfs_file;
+struct device;
 typedef struct kvec vector;
 struct devsw;
 struct dev_stat;
@@ -30,10 +31,10 @@ enum file_type;
 
 // bio.c
 void binit(void);
-struct buf* bread(uint, uint);
+struct buf* bread(struct device*, uint);
 void brelse(struct buf*);
 void bwrite(struct buf*);
-void invalidateblocks(uint);
+void invalidateblocks(struct device*);
 
 // console.c
 void consoleclear(void);
@@ -49,13 +50,13 @@ void tty_detach(struct vfs_inode* ip);
 int tty_gets(struct vfs_inode* ip, int command);
 
 // device.c
-int getorcreatedevice(struct vfs_inode*);
-int getorcreateobjdevice();
-void deviceput(uint);
-void deviceget(uint);
-struct vfs_inode* getinodefordevice(uint);
-void objdevinit(uint dev);
-struct vfs_superblock* getsuperblock(uint);
+struct device* getorcreatedevice(struct vfs_inode*);
+struct device* getorcreateobjdevice();
+struct device* getorcreateidedevice(uint ide_port);
+void deviceput(struct device*);
+void deviceget(struct device*);
+struct vfs_inode* getinodefordevice(struct device*);
+struct vfs_superblock* getsuperblock(struct device*);
 void devinit(void);
 int doesbackdevice(struct vfs_inode*);
 
@@ -72,15 +73,15 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-void obj_iinit(uint dev);
-void obj_fsinit(uint dev);
+void obj_iinit(struct device* dev);
+void obj_fsinit(struct device* dev);
 void obj_mkfs();
 
 // fs.c
-void readsb(int dev, struct native_superblock* sb);
-void iinit(uint dev);
-void fsinit(uint dev);
-void fsstart(uint dev);
+void readsb(struct device* dev, struct native_superblock* sb);
+void iinit(struct device* dev);
+void fsinit(struct device* dev);
+void fsstart(struct device* dev);
 struct vfs_inode* initprocessroot(struct mount**);
 
 // vfs_fs.c
@@ -159,7 +160,7 @@ void lapicstartap(uchar, uint);
 void microdelay(int);
 
 // log.c
-void initlog(int dev);
+void initlog(struct device* dev);
 void log_write(struct buf*);
 void begin_op();
 void end_op();

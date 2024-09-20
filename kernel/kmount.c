@@ -22,7 +22,7 @@ struct mount_list *getactivemounts() {
 }
 
 // Parent mount (if it exists) must already be ref-incremented.
-static void addmountinternal(struct mount_list *mnt_list, uint dev,
+static void addmountinternal(struct mount_list *mnt_list, struct device *dev,
                              struct vfs_inode *mountpoint, struct mount *parent,
                              struct vfs_inode *bind) {
   mnt_list->mnt.mountpoint = mountpoint;
@@ -44,7 +44,8 @@ struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
-  addmountinternal(&mount_holder.mnt_list[0], ROOTDEV, 0, 0, 0);
+  addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV), 0,
+                   0, 0);
   mount_holder.mnt_list[0].mnt.ref = 1;
   myproc()->nsproxy->mount_ns->root = getinitialrootmount();
 }
@@ -87,25 +88,24 @@ int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
           struct vfs_inode *bind_dir, struct mount *parent) {
   struct mount_list *newmountentry = allocmntlist();
   struct mount *newmount = &newmountentry->mnt;
-  int dev;
+  struct device *dev = NULL;
 
   if (device != 0) {
     dev = getorcreatedevice(device);
-    if (dev < 0) {
+    if (dev == NULL) {
       newmount->ref = 0;
       cprintf("failed to create device.\n");
       return -1;
     }
   } else if (bind_dir == 0) {
     dev = getorcreateobjdevice();
-    if (dev < 0) {
+    if (dev == NULL) {
       newmount->ref = 0;
       cprintf("failed to create ObjFS device.\n");
       return -1;
     }
   } else {
     /* Bind mount, do nothing. */
-    dev = -1;
   }
 
   acquire(&myproc()->nsproxy->mount_ns->lock);
@@ -172,7 +172,7 @@ int umount(struct mount *mnt) {
   struct vfs_inode *oldmountpoint = current->mnt.mountpoint;
   struct vfs_inode *oldbind = current->mnt.bind;
 
-  int olddev = current->mnt.dev;
+  struct device *olddev = current->mnt.dev;
   current->mnt.bind = 0;
   current->mnt.mountpoint = 0;
   current->mnt.parent->ref--;

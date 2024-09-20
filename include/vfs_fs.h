@@ -15,7 +15,7 @@ struct sb_ops {
 struct vfs_superblock {
   void *private;
   const struct sb_ops *ops;
-  uint dev;
+  struct device *dev;
   struct vfs_inode *root_ip;
 };
 

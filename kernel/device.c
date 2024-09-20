@@ -11,176 +11,199 @@ struct dev_holder_s dev_holder = {0};
 void devinit(void) {
   int i = 0;
   initlock(&dev_holder.lock, "dev_list");
-
-  // Initiate ref of obj device for future use. (if the device will be save as
-  // internal_fs files and not in the ram)
-  for (i = 0; i < NOBJDEVS; i++) {
-    dev_holder.objdev[i].ref = 0;
+  for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
+       dev++) {
+    dev->id = i++;
+    dev->ref = 0;
+    dev->type = DEVICE_TYPE_NONE;
+    dev->ops = NULL;
+    dev->private = NULL;
   }
 }
 
-void objdevinit(uint dev) {
-  if (dev < NOBJDEVS) {
-    memcpy(&dev_holder.objdev[dev].sb, memory_storage,
-           sizeof(dev_holder.objdev[dev].sb));
-  }
+void objdevinit(struct device* dev) {
+  memcpy(&dev->sb, memory_storage, sizeof(dev->sb));
 }
 
-int getorcreatedevice(struct vfs_inode *ip) {
+static void destroy_dev_default(struct device* dev) { dev->private = NULL; }
+
+static void destory_loop_dev(struct device* dev) {
+  // backing node can be released now.
+  struct vfs_inode* loop_node = (struct vfs_inode*)dev->private;
+  loop_node->i_op->iput(loop_node);
+  invalidateblocks(dev);
+  dev->private = NULL;
+}
+
+static const struct device_ops default_device_ops = {
+    .destroy = &destroy_dev_default,
+};
+
+static const struct device_ops loop_device_ops = {
+    .destroy = &destory_loop_dev,
+};
+
+struct device* getorcreatedevice(struct vfs_inode* ip) {
   acquire(&dev_holder.lock);
-  int emptydevice = -1;
-  for (int i = 0; i < NLOOPDEVS; i++) {
-    if (dev_holder.loopdevs[i].ref == 0 && emptydevice == -1) {
-      emptydevice = i;
-    } else if (dev_holder.loopdevs[i].loop_node == ip) {
-      dev_holder.loopdevs[i].ref++;
-      release(&dev_holder.lock);
-      return LOOP_DEVICE_TO_DEV(i);
+  struct device* empty_device = NULL;
+  for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
+       dev++) {
+    if (dev->ref == 0 && empty_device == NULL) {
+      empty_device = dev;
+    } else if (dev->private != NULL && dev->private == ip &&
+               dev->type == DEVICE_TYPE_LOOP) {
+      empty_device = dev;
+      break;
     }
   }
 
-  if (emptydevice == -1) {
+  if (empty_device == NULL) {
     release(&dev_holder.lock);
-    return -1;
+    return NULL;
   }
 
-  dev_holder.loopdevs[emptydevice].ref = 1;
-  dev_holder.loopdevs[emptydevice].loop_node = ip->i_op->idup(ip);
-
+  empty_device->ref++;
   release(&dev_holder.lock);
-  fsinit(LOOP_DEVICE_TO_DEV(emptydevice));
-  fsstart(LOOP_DEVICE_TO_DEV(emptydevice));
-  return LOOP_DEVICE_TO_DEV(emptydevice);
+
+  if (empty_device->ref > 1) {  // not the first reference - do not initialize.
+    return empty_device;
+  }
+
+  empty_device->ref = 1;
+  empty_device->type = DEVICE_TYPE_LOOP;
+  empty_device->private = ip->i_op->idup(ip);
+  empty_device->ops = &loop_device_ops;
+
+  fsinit(empty_device);
+  fsstart(empty_device);
+
+  return empty_device;
 }
 
-int getorcreateobjdevice() {
+struct device* getorcreateobjdevice() {
   acquire(&dev_holder.lock);
-  int emptydevice = -1;
-  for (int i = 0; i < NOBJDEVS; i++) {
-    if (dev_holder.objdev[i].ref == 0 && emptydevice == -1) {
-      emptydevice = i;
+  struct device* empty_device = NULL;
+  for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
+       dev++) {
+    if (dev->ref == 0 && dev->type == DEVICE_TYPE_NONE &&
+        empty_device == NULL) {
+      empty_device = dev;
+      break;
     }
   }
 
-  if (emptydevice == -1) {
-    cprintf("Not available obj device\n");
+  if (empty_device == NULL) {
+    cprintf("No available devices!");
     release(&dev_holder.lock);
-    return -1;
+    return NULL;
   }
 
-  dev_holder.objdev[emptydevice].ref = 1;
+  empty_device->ref = 1;
+  empty_device->type = DEVICE_TYPE_OBJ;
+  empty_device->ops = &default_device_ops;
+  empty_device->private = NULL;
+
   release(&dev_holder.lock);
-  objdevinit(emptydevice);
+  objdevinit(empty_device);
   /* Save a reference to the root in order to release it in umount. */
-  obj_fsinit(OBJ_TO_DEV(emptydevice));
-  return OBJ_TO_DEV(emptydevice);
+  obj_fsinit(empty_device);
+  return empty_device;
 }
 
-void deviceget(uint dev) {
-  if (IS_LOOP_DEVICE(dev)) {
-    dev = DEV_TO_LOOP_DEVICE(dev);
-    acquire(&dev_holder.lock);
-    dev_holder.loopdevs[dev].ref++;
-    release(&dev_holder.lock);
-  } else if (IS_OBJ_DEVICE(dev)) {
-    dev = DEV_TO_OBJ_DEVICE(dev);
-    acquire(&dev_holder.lock);
-    dev_holder.objdev[dev].ref++;
-    release(&dev_holder.lock);
-  }
-}
-
-void deviceput(uint dev) {
-  if (IS_LOOP_DEVICE(dev)) {
-    dev = DEV_TO_LOOP_DEVICE(dev);
-    acquire(&dev_holder.lock);
-    if (dev_holder.loopdevs[dev].ref == 0) {
-      panic("deviceput: device ref count is 0");
-    }
-    if (dev_holder.loopdevs[dev].ref == 1) {
-      release(&dev_holder.lock);
-
-      struct vfs_superblock *oldsb = getsuperblock(LOOP_DEVICE_TO_DEV(dev));
-      // first teardown the filesystem
-      oldsb->ops->destroy(oldsb);
-
-      // only then the backing inode
-      dev_holder.loopdevs[dev].loop_node->i_op->iput(
-          dev_holder.loopdevs[dev].loop_node);
-      invalidateblocks(LOOP_DEVICE_TO_DEV(dev));
-
-      acquire(&dev_holder.lock);
-      dev_holder.loopdevs[dev].loop_node = NULL;
-    }
-    dev_holder.loopdevs[dev].ref--;
-    release(&dev_holder.lock);
-  } else if (IS_OBJ_DEVICE(dev)) {
-    dev = DEV_TO_OBJ_DEVICE(dev);
-    acquire(&dev_holder.lock);
-    if (dev_holder.objdev[dev].ref == 1) {
-      release(&dev_holder.lock);
-
-      struct vfs_superblock *oldsb = getsuperblock(OBJ_TO_DEV(dev));
-      oldsb->ops->destroy(oldsb);
-
-      acquire(&dev_holder.lock);
-    }
-    dev_holder.objdev[dev].ref--;
-    release(&dev_holder.lock);
-  }
-}
-
-struct vfs_inode *getinodefordevice(uint dev) {
-  if (!IS_LOOP_DEVICE(dev)) {
-    return 0;
-  }
-
-  dev = DEV_TO_LOOP_DEVICE(dev);
-
-  if (dev_holder.loopdevs[dev].ref == 0) {
-    return 0;
-  }
-
-  return dev_holder.loopdevs[dev].loop_node;
-}
-
-struct vfs_superblock *getsuperblock(uint dev) {
-  if (IS_LOOP_DEVICE(dev)) {
-    uint loopdev = DEV_TO_LOOP_DEVICE(dev);
-    if (loopdev >= NLOOPDEVS) {
-      panic("could not find superblock for device: device number to high");
-    }
-    if (dev_holder.loopdevs[loopdev].ref == 0) {
-      panic("could not find superblock for device: device ref count is 0");
-    } else {
-      return &dev_holder.loopdevs[loopdev].sb;
-    }
-  } else if (IS_OBJ_DEVICE(dev)) {
-    uint objdev = DEV_TO_OBJ_DEVICE(dev);
-    if (objdev >= NOBJDEVS) {
-      panic("could not find obj superblock for device: device number to high");
-    }
-    if (dev_holder.objdev[objdev].ref == 0) {
-      panic("could not find obj superblock for device: device ref count is 0");
-    } else {
-      return &dev_holder.objdev[objdev].sb;
-    }
-  } else if (dev < NIDEDEVS) {
-    return &dev_holder.idesb[dev];
-  } else {
-    cprintf("could not find superblock for device, dev: %d\n", dev);
-    panic("could not find superblock for device");
-  }
-}
-
-int doesbackdevice(struct vfs_inode *ip) {
+void deviceget(struct device* dev) {
   acquire(&dev_holder.lock);
-  for (int i = 0; i < NLOOPDEVS; i++) {
-    if (dev_holder.loopdevs[i].loop_node == ip) {
+  dev->ref++;
+  release(&dev_holder.lock);
+}
+
+void deviceput(struct device* d) {
+  acquire(&dev_holder.lock);
+  if (d->ref == 1) {
+    release(&dev_holder.lock);
+
+    // first teardown the filesystem
+    struct vfs_superblock* oldsb = &d->sb;
+    oldsb->ops->destroy(oldsb);
+
+    // now we can destroy the device.
+    d->ops->destroy(d);
+
+    // remove fields
+    d->type = DEVICE_TYPE_NONE;
+    d->private = NULL;
+    d->ops = NULL;
+    memset(&d->sb, 0, sizeof(d->sb));
+
+    acquire(&dev_holder.lock);
+  }
+  d->ref--;
+  release(&dev_holder.lock);
+}
+struct vfs_inode* getinodefordevice(struct device* dev) {
+  if (dev->type != DEVICE_TYPE_LOOP) {
+    return 0;
+  }
+  if (dev->ref == 0) {
+    return 0;
+  }
+
+  return (struct vfs_inode*)dev->private;
+}
+
+struct vfs_superblock* getsuperblock(struct device* d) {
+  if (d->ref == 0 || d->type == DEVICE_TYPE_NONE) {
+    cprintf("getsuperblock: device not found or invalid %d\n", d->id);
+    return 0;
+  }
+  return &d->sb;
+}
+
+int doesbackdevice(struct vfs_inode* ip) {
+  acquire(&dev_holder.lock);
+  for (int i = 0; i < NMAXDEVS; i++) {
+    if (dev_holder.devs[i].type == DEVICE_TYPE_LOOP &&
+        dev_holder.devs[i].private == ip) {
       release(&dev_holder.lock);
       return 1;
     }
   }
   release(&dev_holder.lock);
   return 0;
+}
+
+struct device* getorcreateidedevice(uint ide_port) {
+  acquire(&dev_holder.lock);
+  struct device* empty_device = NULL;
+  for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
+       dev++) {
+    if (dev->ref == 0 && dev->type == DEVICE_TYPE_NONE &&
+        empty_device == NULL) {
+      empty_device = dev;
+    } else if (dev->private != NULL && dev->private == (void*)ide_port &&
+               dev->type == DEVICE_TYPE_IDE) {
+      empty_device = dev;
+      break;
+    }
+  }
+
+  if (empty_device == NULL) {
+    cprintf("No available devices!");
+    release(&dev_holder.lock);
+    return NULL;
+  }
+
+  empty_device->ref++;
+  release(&dev_holder.lock);
+
+  if (empty_device->ref > 1) {  // not the first reference - do not initialize.
+    return empty_device;
+  }
+
+  empty_device->type = DEVICE_TYPE_IDE;
+  empty_device->private = (void*)ide_port;
+  empty_device->ops = &default_device_ops;
+
+  iinit(empty_device);
+
+  return empty_device;
 }

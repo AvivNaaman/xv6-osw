@@ -43,7 +43,7 @@ struct {
   struct obj_inode inode[NINODE];
 } obj_icache;
 
-void obj_iinit(uint dev) {
+void obj_iinit(struct device *dev) {
   initlock(&obj_icache.lock, "obj_icache");
   for (uint i = 0; i < NINODE; i++) {
     initsleeplock(&obj_icache.inode[i].vfs_inode.lock, "obj_inode");
@@ -214,7 +214,7 @@ static const struct sb_ops obj_ops = {
     .destroy = obj_fsdestroy,
 };
 
-void obj_fsinit(uint dev) {
+void obj_fsinit(struct device *dev) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
@@ -370,7 +370,7 @@ void obj_iunlockput(struct vfs_inode *ip) {
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
   // TODO(AvivNaaman): Unite it too under VFS!
-  st->dev = ip->vfs_inode.sb->dev;
+  st->dev = ip->vfs_inode.sb->dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;

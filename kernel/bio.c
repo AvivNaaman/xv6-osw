@@ -60,7 +60,7 @@ void binit(void) {
   }
 }
 
-void invalidateblocks(uint dev) {
+void invalidateblocks(struct device *dev) {
   acquire(&bcache.lock);
   struct buf *b;
   for (b = bcache.head.next; b != &bcache.head; b = b->next) {
@@ -74,7 +74,7 @@ void invalidateblocks(uint dev) {
 // Look through buffer cache for block on device dev.
 // If not found, allocate a buffer.
 // In either case, return locked buffer.
-static struct buf *bget(uint dev, uint blockno) {
+static struct buf *bget(struct device *dev, uint blockno) {
   struct buf *b;
   struct cgroup *cg = proc_get_cgroup();
 
@@ -141,7 +141,7 @@ void brw(struct buf *b) {
 }
 
 // Return a locked buf with the contents of the indicated block.
-struct buf *bread(uint dev, uint blockno) {
+struct buf *bread(struct device *dev, uint blockno) {
   struct buf *b;
 
   b = bget(dev, blockno);

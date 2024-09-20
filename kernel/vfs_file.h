@@ -105,7 +105,7 @@ struct vfs_file {
       union {
         uint mem;
         struct mount_list *mount_entry;
-        struct device devs[NLOOPDEVS];
+        struct device devs[NMAXDEVS];
       } proc;
       uint count; /* Useful to count mount entries/devs, etc.. */
     };

@@ -7,7 +7,7 @@
 
 struct buf {
   int flags;
-  uint dev;
+  struct device *dev;
   uint blockno;
   struct sleeplock lock;
   uint refcnt;

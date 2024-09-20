@@ -79,7 +79,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
     mntinum = ip->inum;
     ip->i_op->iunlockput(ip);
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
-        (curmount->dev != ROOTDEV) &&
+        (curmount->dev->id != 0) &&  // TODO(Aviv): Make it healthier
         ((mntinum == ROOTINO) || (mntinum == OBJ_ROOTINO)) &&
         curmount->mountpoint != 0 &&
         curmount->mountpoint->i_op->dirlookup != NULL) {
@@ -99,12 +99,12 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       if (curmount->bind != NULL) {
         next = curmount->bind->i_op->idup(curmount->bind);
       } else {
-        if (IS_OBJ_DEVICE(nextmount->dev)) {
+        struct vfs_superblock *sb = getsuperblock(curmount->dev);
+        if (sb->dev->type == DEVICE_TYPE_OBJ) {
           mntinum = OBJ_ROOTINO;
         } else {
           mntinum = ROOTINO;
         }
-        struct vfs_superblock *sb = getsuperblock(curmount->dev);
         next = sb->ops->get_inode(sb, mntinum);
       }
     }

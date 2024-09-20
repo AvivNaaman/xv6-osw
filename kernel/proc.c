@@ -635,8 +635,12 @@ void forkret(void) {
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
     first = 0;
-    fsstart(ROOTDEV);
-    initlog(ROOTDEV);
+
+    struct device *root_dev = getorcreateidedevice(ROOTDEV);
+    fsstart(root_dev);
+    initlog(root_dev);
+    deviceput(root_dev);
+
     init_objfs_log();
     mntinit();  // initialize mounts
   }

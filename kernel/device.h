@@ -5,36 +5,39 @@
 #include "obj_fs.h"
 #include "spinlock.h"
 
-#define LOOP_DEVICE_DEV (7)
-#define OBJ_DEV (15)
-#define DEV_TO_LOOP_DEVICE(dev) ((dev)&0xffff)
-#define DEV_TO_OBJ_DEVICE(dev) ((dev)&0xffff)
-#define LOOP_DEVICE_TO_DEV(ld) ((ld) | (LOOP_DEVICE_DEV << 16))
-#define OBJ_TO_DEV(ld) ((ld) | (OBJ_DEV << 16))
-#define IS_LOOP_DEVICE(dev) (((dev) >> 16) == LOOP_DEVICE_DEV)
-#define IS_OBJ_DEVICE(dev) (((dev) >> 16) == OBJ_DEV)
+#define NLOOPDEVS_ (10)
+#define NIDEDEVS_ (2)
+#define NOBJDEVS_ (2)
 
-#define NLOOPDEVS (10)
-#define NIDEDEVS (2)
-#define NOBJDEVS (2)
+#define NMAXDEVS (NLOOPDEVS_ + NIDEDEVS_ + NOBJDEVS_)
 
-struct device {
-  struct vfs_inode *loop_node;
-  int ref;
-  struct vfs_superblock sb;
+struct device;
+
+enum device_type {
+  DEVICE_TYPE_NONE = 0,
+  DEVICE_TYPE_IDE,
+  DEVICE_TYPE_LOOP,
+  DEVICE_TYPE_OBJ,
 };
 
-struct obj_device {
-  struct vfs_superblock sb;
+struct device_ops {
+  void (*destroy)(struct device* dev);
+};
+
+struct device {
   int ref;
+  int id;
+  struct vfs_superblock sb;
+  enum device_type type;
+  void* private;
+  const struct device_ops* ops;
 };
 
 struct dev_holder_s {
   struct spinlock lock;  // protects loopdevs
-  struct device loopdevs[NLOOPDEVS];
-  struct vfs_superblock idesb[NIDEDEVS];
-  struct obj_device objdev[NOBJDEVS];
+  struct device devs[NMAXDEVS];
 };
+
 extern struct dev_holder_s dev_holder;
 
 #endif /* XV6_DEVICE_H */

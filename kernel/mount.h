@@ -12,7 +12,7 @@ struct mount {
   /* Reference count. */
   int ref;
   /* Associated device, applicable only for native-fs and obj-fs mounts. */
-  uint dev;
+  struct device *dev;
   /* Associated inode, applicable only for bind mounts. */
   struct vfs_inode *bind;
 };

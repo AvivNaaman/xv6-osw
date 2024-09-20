@@ -30,28 +30,29 @@ int main(void) {
   while (!gdb_attached) {
   }
 #endif
-  kinit1(end, P2V(4 * 1024 * 1024));           // phys page allocator
-  kvmalloc();                                  // kernel page table
-  mpinit();                                    // detect other processors
-  lapicinit();                                 // interrupt controller
-  seginit();                                   // segment descriptors
-  picinit();                                   // disable pic
-  ioapicinit();                                // another interrupt controller
-  consoleinit();                               // console hardware
-  ttyinit();                                   // create additional ttys
-  uartinit();                                  // serial port
-  pinit();                                     // process table
-  tvinit();                                    // trap vectors
-  binit();                                     // buffer cache
-  vfs_fileinit();                              // file table
-  iinit(ROOTDEV);                              // mount root file system
+  kinit1(end, P2V(4 * 1024 * 1024));  // phys page allocator
+  kvmalloc();                         // kernel page table
+  mpinit();                           // detect other processors
+  lapicinit();                        // interrupt controller
+  seginit();                          // segment descriptors
+  picinit();                          // disable pic
+  ioapicinit();                       // another interrupt controller
+  consoleinit();                      // console hardware
+  ttyinit();                          // create additional ttys
+  uartinit();                         // serial port
+  pinit();                            // process table
+  tvinit();                           // trap vectors
+  binit();                            // buffer cache
+  vfs_fileinit();                     // file table
+  devinit();                          // initialize devices
+  if (getorcreateidedevice(ROOTDEV) == NULL)
+    panic("Failed to mount /!");               // mount root file system
   objfsinit();                                 // objfs disk
   ideinit();                                   // disk
   startothers();                               // start other processors
   kinit2(P2V(4 * 1024 * 1024), P2V(PHYSTOP));  // must come after startothers()
   cginit();         // cgroup table, must come before userinit()
   userinit();       // first user process
-  devinit();        // initialize devices
   namespaceinit();  // initialize namespaces
   mpmain();         // finish this processor's setup
 }

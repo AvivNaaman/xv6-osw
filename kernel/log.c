@@ -45,7 +45,7 @@ struct log {
   int size;
   int outstanding;  // how many FS sys calls are executing.
   int committing;   // in commit(), please wait.
-  int dev;
+  struct device *dev;
   struct logheader lh;
 };
 struct log log;
@@ -53,7 +53,7 @@ struct log log;
 static void recover_from_log(void);
 static void commit();
 
-void initlog(int dev) {
+void initlog(struct device *dev) {
   if (sizeof(struct logheader) >= BSIZE) panic("initlog: too big logheader");
 
   struct native_superblock sb;
@@ -202,7 +202,7 @@ void log_write(struct buf *b) {
     panic("too big a transaction");
   if (log.outstanding < 1) panic("log_write outside of trans");
 
-  if (IS_LOOP_DEVICE(b->dev)) {
+  if (b->dev->type == DEVICE_TYPE_LOOP) {
     // disable journaling for loop devices.
     bwrite(b);
     return;

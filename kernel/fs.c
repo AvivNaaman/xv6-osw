@@ -42,7 +42,7 @@ int isdirempty(struct vfs_inode *);
 static void itrunc(struct vfs_inode *ip);
 
 // Read the super block.
-void readsb(int dev, struct native_superblock *sb) {
+void readsb(struct device *dev, struct native_superblock *sb) {
   struct buf *bp;
 
   bp = bread(dev, 1);
@@ -51,7 +51,7 @@ void readsb(int dev, struct native_superblock *sb) {
 }
 
 // Zero a block.
-static void bzero(int dev, int bno) {
+static void bzero(struct device *dev, int bno) {
   struct buf *bp;
 
   bp = bread(dev, bno);
@@ -63,7 +63,7 @@ static void bzero(int dev, int bno) {
 // Blocks.
 
 // Allocate a zeroed disk block.
-static uint balloc(uint dev) {
+static uint balloc(struct device *dev) {
   int b, bi, m;
   struct buf *bp;
 
@@ -89,7 +89,7 @@ static uint balloc(uint dev) {
 }
 
 // Free a disk block.
-static void bfree(int dev, uint b) {
+static void bfree(struct device *dev, uint b) {
   struct buf *bp;
   int bi, m;
 
@@ -179,7 +179,7 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
-void iinit(uint dev) {
+void iinit(struct device *dev) {
   int i = 0;
 
   initlock(&icache.lock, "icache");
@@ -294,7 +294,7 @@ static void fsdestroy(struct vfs_superblock *vfs_sb) {
 static const struct sb_ops native_ops = {
     .alloc_inode = ialloc, .get_inode = iget, .destroy = fsdestroy};
 
-void fsinit(uint dev) {
+void fsinit(struct device *dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = (struct native_superblock *)kalloc();
 
@@ -309,7 +309,7 @@ void fsinit(uint dev) {
 }
 
 // Must run from context of a process (uses sleep locks)
-void fsstart(uint dev) {
+void fsstart(struct device *dev) {
   struct vfs_superblock *vfs_sb = getsuperblock(dev);
   if (vfs_sb->private == 0) {
     panic("fsstart: fsinit not called");
@@ -503,7 +503,7 @@ static void itrunc(struct vfs_inode *vfs_ip) {
 void stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
 
-  st->dev = ip->vfs_inode.sb->dev;
+  st->dev = ip->vfs_inode.sb->dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;
@@ -675,6 +675,9 @@ struct vfs_inode *initprocessroot(struct mount **mnt) {
   // This is called during first process creation (in kernel mode, no context)
   // but fsinit is called in first usermode process context (kernel mode).
   // this causes *sb to be uninitialized and causes a banic once calling iget!
-  struct vfs_superblock *sb = getsuperblock(ROOTDEV);
-  return sb->ops->get_inode(sb, ROOTINO);
+  struct device *dev = getorcreateidedevice(ROOTDEV);
+  struct vfs_superblock *sb = getsuperblock(dev);
+  struct vfs_inode *inode = sb->ops->get_inode(sb, ROOTINO);
+  deviceput(dev);
+  return inode;
 }
