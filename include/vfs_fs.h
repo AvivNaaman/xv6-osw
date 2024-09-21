@@ -1,9 +1,9 @@
 #ifndef XV6_VFS_FS_H
 #define XV6_VFS_FS_H
 
+#include "spinlock.h"
 #include "stat.h"
 #include "types.h"
-#include "spinlock.h"
 
 struct vfs_superblock;
 

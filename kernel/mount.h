@@ -12,7 +12,7 @@ struct mount {
   /* Reference count. */
   int ref;
   /* Associated mounted FS superblock. */
-  struct vfs_superblock* sb;
+  struct vfs_superblock *sb;
   /* Associated inode, applicable only for bind mounts. */
   struct vfs_inode *bind;
 };

@@ -26,8 +26,8 @@ struct mount_list *getactivemounts(struct mount_ns *ns) {
 
 // Parent mount (if it exists) must already be ref-incremented.
 static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
-                             struct vfs_inode *mountpoint, struct mount *parent,
-                             struct vfs_inode *bind, struct mount_ns *ns) {
+                            struct vfs_inode *mountpoint, struct mount *parent,
+                            struct vfs_inode *bind, struct mount_ns *ns) {
   // allocate superblock
   struct vfs_superblock *vfs_sb = sballoc();
 
@@ -38,10 +38,9 @@ static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
 
   // initialize filesystem
   if (dev != NULL) {
-    switch (dev->type)
-    {
+    switch (dev->type) {
       case DEVICE_TYPE_IDE:
-        iinit(mnt_list->mnt.sb, dev); 
+        iinit(mnt_list->mnt.sb, dev);
       case DEVICE_TYPE_LOOP:
         fsinit(mnt_list->mnt.sb, dev);
         break;
@@ -69,7 +68,7 @@ void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
   addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV), 0,
-                   0, 0, get_root_mount_ns()) ; // fs start later in init
+                   0, 0, get_root_mount_ns());  // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;
   get_root_mount_ns()->root = getinitialrootmount();
 }
@@ -114,7 +113,7 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
   struct mount *newmount = &newmountentry->mnt;
 
   // if both target_dev and bind_dir are set, it's an error.
-  // but we must have at least one of them. 
+  // but we must have at least one of them.
   if ((target_dev == 0) == (bind_dir == 0)) {
     newmount->ref = 0;
     cprintf("mount: must have exactly one of target_dev or bind_dir\n");
@@ -142,10 +141,9 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
   addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
                    myproc()->nsproxy->mount_ns);
   release(&myproc()->nsproxy->mount_ns->lock);
-  if (newmount->sb->ops->start != NULL)
-{  
-  newmount->sb->ops->start(newmount->sb);
-}
+  if (newmount->sb->ops->start != NULL) {
+    newmount->sb->ops->start(newmount->sb);
+  }
   return 0;
 }
 
@@ -204,7 +202,7 @@ int umount(struct mount *mnt) {
     oldbind->i_op->iput(oldbind);
   }
   oldmountpoint->i_op->iput(oldmountpoint);
-  
+
   sbput(current->mnt.sb);
   // clear the superblock struct
   memset(&current->mnt.sb, 0, sizeof(current->mnt.sb));

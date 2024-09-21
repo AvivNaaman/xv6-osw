@@ -100,7 +100,7 @@ int handle_objfs_mounts() {
 
   mount_dir->i_op->ilock(mount_dir);
 
-  struct device* objdev = getorcreateobjdevice();
+  struct device *objdev = getorcreateobjdevice();
   if (objdev == NULL) {
     cprintf("failed to create ObjFS device\n");
     mount_dir->i_op->iunlockput(mount_dir);
@@ -288,7 +288,7 @@ int handle_nativefs_mounts() {
     goto exit;
   }
 
-  struct device* loop_dev = getorcreatedevice(loop_inode);
+  struct device *loop_dev = getorcreatedevice(loop_inode);
   if (loop_dev == NULL) {
     loop_inode->i_op->iunlockput(loop_inode);
     mount_dir->i_op->iunlockput(mount_dir);

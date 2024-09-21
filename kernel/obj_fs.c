@@ -183,7 +183,7 @@ static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
   ip->data_object_name[0] = 0;
   file_name(ip->data_object_name, inum);
 
-  struct device* dev = sb_private(sb);
+  struct device *dev = sb_private(sb);
   if (ref_device) {
     deviceget(dev);
   }
@@ -209,12 +209,10 @@ static void obj_fsdestroy(struct vfs_superblock *vfs_sb) {
   vfs_sb->ops = NULL;
 }
 
-static const struct sb_ops obj_ops = {
-    .alloc_inode = obj_ialloc,
-    .get_inode = obj_iget,
-    .destroy = obj_fsdestroy,
-    .start = NULL
-};
+static const struct sb_ops obj_ops = {.alloc_inode = obj_ialloc,
+                                      .get_inode = obj_iget,
+                                      .destroy = obj_fsdestroy,
+                                      .start = NULL};
 
 void obj_fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
   struct vfs_inode *root_inode;
@@ -353,7 +351,7 @@ void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device) {
 
   ip->vfs_inode.ref--;
   if (ip->vfs_inode.ref == 0 && ref_device) {
-    struct device* dev = sb_private(ip->vfs_inode.sb);
+    struct device *dev = sb_private(ip->vfs_inode.sb);
     deviceput(dev);
   }
   release(&obj_icache.lock);

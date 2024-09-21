@@ -99,8 +99,8 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       if (curmount->bind != NULL) {
         next = curmount->bind->i_op->idup(curmount->bind);
       } else {
-        struct vfs_inode* root_inode = curmount->sb->root_ip;
-        next = root_inode->i_op->idup(root_inode); // ref
+        struct vfs_inode *root_inode = curmount->sb->root_ip;
+        next = root_inode->i_op->idup(root_inode);  // ref
       }
     }
 

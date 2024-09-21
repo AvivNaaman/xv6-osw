@@ -4,6 +4,7 @@
 #include "defs.h"
 #include "memlayout.h"
 #include "mmu.h"
+#include "mount.h"
 #include "namespace.h"
 #include "obj_log.h"
 #include "param.h"
@@ -13,7 +14,6 @@
 #include "types.h"
 #include "wstatus.h"
 #include "x86.h"
-#include "mount.h"
 
 struct {
   struct spinlock lock;

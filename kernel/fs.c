@@ -41,7 +41,8 @@ int isdirempty(struct vfs_inode *);
 
 static void itrunc(struct vfs_inode *ip);
 
-static inline struct buf * fs_bread(struct vfs_superblock *vfs_sb, uint blockno) {
+static inline struct buf *fs_bread(struct vfs_superblock *vfs_sb,
+                                   uint blockno) {
   struct native_superblock_private *sb = sb_private(vfs_sb);
   return bread(sb->dev, blockno);
 }
@@ -74,7 +75,7 @@ static uint balloc(struct vfs_superblock *vfs_sb) {
 
   bp = 0;
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
+  struct native_superblock *sb = &sbp->sb;
 
   for (b = 0; b < sb->size; b += BPB) {
     bp = fs_bread(vfs_sb, BBLOCK(b, *sb));
@@ -99,7 +100,7 @@ static void bfree(struct vfs_superblock *vfs_sb, uint b) {
   int bi, m;
 
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
+  struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
   bp = fs_bread(vfs_sb, BBLOCK(b, *sb));
   bi = b % BPB;
@@ -184,7 +185,7 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
-void iinit(struct vfs_superblock *vfs_sb, struct device* dev) {
+void iinit(struct vfs_superblock *vfs_sb, struct device *dev) {
   int i = 0;
 
   initlock(&icache.lock, "icache");
@@ -206,7 +207,7 @@ static struct vfs_inode *ialloc(struct vfs_superblock *vfs_sb, file_type type) {
 
   // todo: assert fsstart() called
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
+  struct native_superblock *sb = &sbp->sb;
   for (inum = 1; inum < sb->ninodes; inum++) {
     bp = fs_bread(vfs_sb, IBLOCK(inum, *sb));
     dip = (struct dinode *)bp->data + inum % IPB;
@@ -292,23 +293,20 @@ static void iput_internal(struct vfs_inode *ip, bool ref_device);
 
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
-  kfree((char *)sb);
-  vfs_sb->private = NULL;
-  vfs_sb->ops = NULL;
   iput_internal(vfs_sb->root_ip, true);
+  kfree((char *)sbp);
 }
 
-static const struct sb_ops native_ops = {
-    .alloc_inode = ialloc, 
-    .get_inode = iget,
-     .destroy = fsdestroy,
-     .start = fsstart};
+static const struct sb_ops native_ops = {.alloc_inode = ialloc,
+                                         .get_inode = iget,
+                                         .destroy = fsdestroy,
+                                         .start = fsstart};
 
-void fsinit(struct vfs_superblock *vfs_sb, struct device* dev) {
-  struct native_superblock_private *sbp = (struct native_superblock_private *)kalloc();
+void fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
+  struct native_superblock_private *sbp =
+      (struct native_superblock_private *)kalloc();
   sbp->dev = dev;
-  
+
   vfs_sb->private = sbp;
   vfs_sb->ops = &native_ops;
   /* cprintf(
@@ -324,7 +322,7 @@ void fsstart(struct vfs_superblock *vfs_sb) {
     panic("fsstart: fsinit not called");
   }
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
+  struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
   vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, true);
   if (sbp->dev->type != DEVICE_TYPE_LOOP) {
@@ -343,7 +341,7 @@ void iupdate(struct vfs_inode *vfs_ip) {
 
   struct vfs_superblock *vfs_sb = ip->vfs_inode.sb;
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-struct native_superblock *sb = &sbp->sb;
+  struct native_superblock *sb = &sbp->sb;
 
   bp = fs_bread(ip->vfs_inode.sb, IBLOCK(ip->vfs_inode.inum, *sb));
   dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
@@ -424,14 +422,15 @@ static void iput_internal(struct vfs_inode *ip, bool ref_device) {
     }
   }
   releasesleep(&ip->lock);
-  acquire(&icache.lock);
 
+  acquire(&icache.lock);
   ip->ref--;
+  release(&icache.lock);
+
   if (ip->ref == 0 && ref_device) {
     struct native_superblock_private *sbp = sb_private(ip->sb);
     deviceput(sbp->dev);
   }
-  release(&icache.lock);
 }
 
 void iput(struct vfs_inode *ip) { iput_internal(ip, true); }

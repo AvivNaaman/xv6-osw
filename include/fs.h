@@ -26,8 +26,8 @@ struct native_superblock {
 };
 
 struct native_superblock_private {
-  struct native_superblock sb; // in memory copy of superblock for the fs.
-  struct device* dev;         // device for the fs.
+  struct native_superblock sb;  // in memory copy of superblock for the fs.
+  struct device* dev;           // device for the fs.
 };
 
 #define NDIRECT 12
