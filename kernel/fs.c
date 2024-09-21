@@ -177,7 +177,7 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
-void iinit(struct device *dev) {
+void iinit(struct vfs_superblock *vfs_sb) {
   int i = 0;
 
   initlock(&icache.lock, "icache");
@@ -185,7 +185,7 @@ void iinit(struct device *dev) {
     initsleeplock(&icache.inode[i].vfs_inode.lock, "inode");
   }
 
-  fsinit(dev);
+  fsinit(vfs_sb);
 }
 
 // PAGEBREAK!
@@ -292,13 +292,11 @@ static void fsdestroy(struct vfs_superblock *vfs_sb) {
 static const struct sb_ops native_ops = {
     .alloc_inode = ialloc, .get_inode = iget, .destroy = fsdestroy};
 
-void fsinit(struct device *dev) {
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
+void fsinit(struct vfs_superblock *vfs_sb) {
   struct native_superblock *sb = (struct native_superblock *)kalloc();
 
   vfs_sb->private = sb;
   vfs_sb->ops = &native_ops;
-  vfs_sb->dev = dev;
   /* cprintf(
       "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
       "inodestart %d bmap start %d\n",

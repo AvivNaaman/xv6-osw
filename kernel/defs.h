@@ -78,9 +78,9 @@ void obj_fsinit(struct device* dev);
 void obj_mkfs();
 
 // fs.c
-void readsb(struct vfs_superblock* dev, struct native_superblock* sb);
-void iinit(struct device* dev);
-void fsinit(struct device* dev);
+void readsb(struct vfs_superblock*, struct native_superblock* sb);
+void iinit(struct vfs_superblock*);
+void fsinit(struct vfs_superblock*);
 void fsstart(struct vfs_superblock*);
 struct vfs_inode* initprocessroot(struct mount**);
 

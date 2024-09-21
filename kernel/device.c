@@ -74,7 +74,8 @@ struct device* getorcreatedevice(struct vfs_inode* ip) {
   empty_device->private = ip->i_op->idup(ip);
   empty_device->ops = &loop_device_ops;
 
-  fsinit(empty_device);
+  empty_device->sb.dev = empty_device;
+  fsinit(&empty_device->sb);
   fsstart(&empty_device->sb);
 
   return empty_device;
@@ -203,7 +204,8 @@ struct device* getorcreateidedevice(uint ide_port) {
   empty_device->private = (void*)ide_port;
   empty_device->ops = &default_device_ops;
 
-  iinit(empty_device);
+  empty_device->sb.dev = empty_device;
+  iinit(&empty_device->sb);
 
   return empty_device;
 }
