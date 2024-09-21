@@ -1866,7 +1866,7 @@ void nativefs_all_tests(void) {
     exit(1);
   }
 
-  // all_fs_tests("nativefs");
+  all_fs_tests("nativefs");
 
   if (chdir("..") < 0) {
     printf(stdout, "chdir .. failed\n");

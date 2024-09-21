@@ -21,10 +21,6 @@ void devinit(void) {
   }
 }
 
-void objdevinit(struct device* dev) {
-  memcpy(&dev->sb, memory_storage, sizeof(dev->sb));
-}
-
 static void destroy_dev_default(struct device* dev) { dev->private = NULL; }
 
 static void destory_loop_dev(struct device* dev) {
@@ -104,10 +100,11 @@ struct device* getorcreateobjdevice() {
   empty_device->ops = &default_device_ops;
   empty_device->private = NULL;
 
+  empty_device->sb.dev = empty_device;
+
   release(&dev_holder.lock);
-  objdevinit(empty_device);
   /* Save a reference to the root in order to release it in umount. */
-  obj_fsinit(empty_device);
+  obj_fsinit(&empty_device->sb);
   return empty_device;
 }
 

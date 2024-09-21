@@ -73,8 +73,7 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-void obj_iinit(struct device* dev);
-void obj_fsinit(struct device* dev);
+void obj_fsinit(struct vfs_superblock* dev);
 void obj_mkfs();
 
 // fs.c

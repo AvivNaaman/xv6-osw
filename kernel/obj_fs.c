@@ -43,7 +43,7 @@ struct {
   struct obj_inode inode[NINODE];
 } obj_icache;
 
-void obj_iinit(struct device *dev) {
+static void obj_iinit() {
   initlock(&obj_icache.lock, "obj_icache");
   for (uint i = 0; i < NINODE; i++) {
     initsleeplock(&obj_icache.inode[i].vfs_inode.lock, "obj_inode");
@@ -214,16 +214,14 @@ static const struct sb_ops obj_ops = {
     .destroy = obj_fsdestroy,
 };
 
-void obj_fsinit(struct device *dev) {
+void obj_fsinit(struct vfs_superblock *vfs_sb) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
 
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
-  obj_iinit(dev);
+  obj_iinit();
 
   vfs_sb->ops = &obj_ops;
-  vfs_sb->dev = dev;
   vfs_sb->private = NULL;
 
   /* Initiate root dir */
