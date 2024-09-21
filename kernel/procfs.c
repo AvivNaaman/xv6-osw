@@ -142,6 +142,7 @@ int unsafe_proc_open_file(char* filename, int omode) {
       break;
 
     case PROC_DEVICES:
+      memset(f->proc.devs, 0, sizeof(f->proc.devs));
       acquire(&dev_holder.lock);
       f->count = 0;
       for (int i = 0; i < NMAXDEVS; i++) {

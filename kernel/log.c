@@ -54,14 +54,18 @@ static void recover_from_log(void);
 static void commit();
 
 void initlog(struct vfs_superblock *vfs_sb) {
+  struct native_superblock sb;
+
   if (sizeof(struct logheader) >= BSIZE) panic("initlog: too big logheader");
 
-  struct native_superblock sb;
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+  deviceget(sbp->dev);
+
   initlock(&log.lock, "log");
   readsb(vfs_sb, &sb);
   log.start = sb.logstart;
   log.size = sb.nlog;
-  log.dev = vfs_sb->dev;
+  log.dev = sbp->dev;
   recover_from_log();
 }
 

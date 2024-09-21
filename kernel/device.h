@@ -27,7 +27,6 @@ struct device_ops {
 struct device {
   int ref;
   int id;
-  struct vfs_superblock sb;
   enum device_type type;
   void* private;
   const struct device_ops* ops;

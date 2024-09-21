@@ -41,11 +41,16 @@ int isdirempty(struct vfs_inode *);
 
 static void itrunc(struct vfs_inode *ip);
 
+static inline struct buf * fs_bread(struct vfs_superblock *vfs_sb, uint blockno) {
+  struct native_superblock_private *sb = sb_private(vfs_sb);
+  return bread(sb->dev, blockno);
+}
+
 // Read the super block.
 void readsb(struct vfs_superblock *vfs_sb, struct native_superblock *sb) {
   struct buf *bp;
 
-  bp = bread(vfs_sb->dev, 1);
+  bp = fs_bread(vfs_sb, 1);
   memmove(sb, bp->data, sizeof(*sb));
   brelse(bp);
 }
@@ -54,7 +59,7 @@ void readsb(struct vfs_superblock *vfs_sb, struct native_superblock *sb) {
 static void bzero(struct vfs_superblock *vfs_sb, int bno) {
   struct buf *bp;
 
-  bp = bread(vfs_sb->dev, bno);
+  bp = fs_bread(vfs_sb, bno);
   memset(bp->data, 0, BSIZE);
   log_write(bp);
   brelse(bp);
@@ -68,10 +73,11 @@ static uint balloc(struct vfs_superblock *vfs_sb) {
   struct buf *bp;
 
   bp = 0;
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
 
   for (b = 0; b < sb->size; b += BPB) {
-    bp = bread(vfs_sb->dev, BBLOCK(b, *sb));
+    bp = fs_bread(vfs_sb, BBLOCK(b, *sb));
     for (bi = 0; bi < BPB && b + bi < sb->size; bi++) {
       m = 1 << (bi % 8);
       if ((bp->data[bi / 8] & m) == 0) {  // Is block free?
@@ -92,9 +98,10 @@ static void bfree(struct vfs_superblock *vfs_sb, uint b) {
   struct buf *bp;
   int bi, m;
 
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
-  bp = bread(vfs_sb->dev, BBLOCK(b, *sb));
+  bp = fs_bread(vfs_sb, BBLOCK(b, *sb));
   bi = b % BPB;
   m = 1 << (bi % 8);
   if ((bp->data[bi / 8] & m) == 0) panic("freeing free block");
@@ -177,7 +184,7 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
-void iinit(struct vfs_superblock *vfs_sb) {
+void iinit(struct vfs_superblock *vfs_sb, struct device* dev) {
   int i = 0;
 
   initlock(&icache.lock, "icache");
@@ -185,7 +192,7 @@ void iinit(struct vfs_superblock *vfs_sb) {
     initsleeplock(&icache.inode[i].vfs_inode.lock, "inode");
   }
 
-  fsinit(vfs_sb);
+  fsinit(vfs_sb, dev);
 }
 
 // PAGEBREAK!
@@ -198,9 +205,10 @@ static struct vfs_inode *ialloc(struct vfs_superblock *vfs_sb, file_type type) {
   struct dinode *dip;
 
   // todo: assert fsstart() called
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
   for (inum = 1; inum < sb->ninodes; inum++) {
-    bp = bread(vfs_sb->dev, IBLOCK(inum, *sb));
+    bp = fs_bread(vfs_sb, IBLOCK(inum, *sb));
     dip = (struct dinode *)bp->data + inum % IPB;
     if (dip->vfs_dinode.type == 0) {  // a free inode
       memset(dip, 0, sizeof(*dip));
@@ -241,7 +249,7 @@ static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
   // Is the inode already cached?
   empty = 0;
   for (ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++) {
-    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb->dev == vfs_sb->dev &&
+    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb == vfs_sb &&
         ip->vfs_inode.inum == inum) {
       ip->vfs_inode.ref++;
       release(&icache.lock);
@@ -260,7 +268,8 @@ static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
   }
 
   if (ref_device) {
-    deviceget(vfs_sb->dev);
+    struct native_superblock_private *sbp = sb_private(vfs_sb);
+    deviceget(sbp->dev);
   }
   ip = empty;
   ip->vfs_inode.sb = vfs_sb;
@@ -282,20 +291,25 @@ static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
 static void iput_internal(struct vfs_inode *ip, bool ref_device);
 
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
   kfree((char *)sb);
   vfs_sb->private = NULL;
   vfs_sb->ops = NULL;
-  iput_internal(vfs_sb->root_ip, false);
+  iput_internal(vfs_sb->root_ip, true);
 }
 
 static const struct sb_ops native_ops = {
-    .alloc_inode = ialloc, .get_inode = iget, .destroy = fsdestroy};
+    .alloc_inode = ialloc, 
+    .get_inode = iget,
+     .destroy = fsdestroy,
+     .start = fsstart};
 
-void fsinit(struct vfs_superblock *vfs_sb) {
-  struct native_superblock *sb = (struct native_superblock *)kalloc();
-
-  vfs_sb->private = sb;
+void fsinit(struct vfs_superblock *vfs_sb, struct device* dev) {
+  struct native_superblock_private *sbp = (struct native_superblock_private *)kalloc();
+  sbp->dev = dev;
+  
+  vfs_sb->private = sbp;
   vfs_sb->ops = &native_ops;
   /* cprintf(
       "sb: size %d nblocks %d ninodes %d nlog %d logstart %d "
@@ -309,9 +323,13 @@ void fsstart(struct vfs_superblock *vfs_sb) {
   if (vfs_sb->private == 0) {
     panic("fsstart: fsinit not called");
   }
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
-  vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, false);
+  vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, true);
+  if (sbp->dev->type != DEVICE_TYPE_LOOP) {
+    initlog(vfs_sb);
+  }
 }
 
 // Copy a modified in-memory inode to disk.
@@ -323,10 +341,11 @@ void iupdate(struct vfs_inode *vfs_ip) {
   struct dinode *dip;
   struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
 
-  struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.sb->dev);
-  struct native_superblock *sb = sb_private(vfs_sb);
+  struct vfs_superblock *vfs_sb = ip->vfs_inode.sb;
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+struct native_superblock *sb = &sbp->sb;
 
-  bp = bread(ip->vfs_inode.sb->dev, IBLOCK(ip->vfs_inode.inum, *sb));
+  bp = fs_bread(ip->vfs_inode.sb, IBLOCK(ip->vfs_inode.inum, *sb));
   dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
   dip->vfs_dinode.type = ip->vfs_inode.type;
   dip->vfs_dinode.major = ip->vfs_inode.major;
@@ -359,10 +378,10 @@ void ilock(struct vfs_inode *vfs_ip) {
   acquiresleep(&ip->vfs_inode.lock);
 
   if (ip->vfs_inode.valid == 0) {
-    struct vfs_superblock *vfs_sb = getsuperblock(ip->vfs_inode.sb->dev);
-    struct native_superblock *sb = sb_private(vfs_sb);
+    struct native_superblock_private *sbp = sb_private(ip->vfs_inode.sb);
+    struct native_superblock *sb = &sbp->sb;
 
-    bp = bread(ip->vfs_inode.sb->dev, IBLOCK(ip->vfs_inode.inum, *sb));
+    bp = fs_bread(ip->vfs_inode.sb, IBLOCK(ip->vfs_inode.inum, *sb));
     dip = (struct dinode *)bp->data + ip->vfs_inode.inum % IPB;
     ip->vfs_inode.type = dip->vfs_dinode.type;
     ip->vfs_inode.major = dip->vfs_dinode.major;
@@ -409,7 +428,8 @@ static void iput_internal(struct vfs_inode *ip, bool ref_device) {
 
   ip->ref--;
   if (ip->ref == 0 && ref_device) {
-    deviceput(ip->sb->dev);
+    struct native_superblock_private *sbp = sb_private(ip->sb);
+    deviceput(sbp->dev);
   }
   release(&icache.lock);
 }
@@ -447,7 +467,7 @@ static uint bmap(struct inode *ip, uint bn) {
     // Load indirect block, allocating if necessary.
     if ((addr = ip->addrs[NDIRECT]) == 0)
       ip->addrs[NDIRECT] = addr = balloc(ip->vfs_inode.sb);
-    bp = bread(ip->vfs_inode.sb->dev, addr);
+    bp = fs_bread(ip->vfs_inode.sb, addr);
     a = (uint *)bp->data;
     if ((addr = a[bn]) == 0) {
       a[bn] = addr = balloc(ip->vfs_inode.sb);
@@ -479,7 +499,7 @@ static void itrunc(struct vfs_inode *vfs_ip) {
   }
 
   if (ip->addrs[NDIRECT]) {
-    bp = bread(ip->vfs_inode.sb->dev, ip->addrs[NDIRECT]);
+    bp = fs_bread(ip->vfs_inode.sb, ip->addrs[NDIRECT]);
     a = (uint *)bp->data;
     for (j = 0; j < NINDIRECT; j++) {
       if (a[j]) bfree(ip->vfs_inode.sb, a[j]);
@@ -498,7 +518,8 @@ static void itrunc(struct vfs_inode *vfs_ip) {
 void stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct inode *ip = container_of(vfs_ip, struct inode, vfs_inode);
 
-  st->dev = ip->vfs_inode.sb->dev->id;
+  struct native_superblock_private *sbp = sb_private(ip->vfs_inode.sb);
+  st->dev = sbp->dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;
@@ -528,7 +549,7 @@ int readi(struct vfs_inode *vfs_ip, uint off, uint n, vector *dstvector) {
 
   unsigned int dstoffset = 0;
   for (tot = 0; tot < n; tot += m, off += m, dstoffset += m) {
-    bp = bread(ip->vfs_inode.sb->dev, bmap(ip, off / BSIZE));
+    bp = fs_bread(ip->vfs_inode.sb, bmap(ip, off / BSIZE));
     m = min(n - tot,
             BSIZE - off % BSIZE);  // NOLINT(build/include_what_you_use)
     memmove_into_vector_bytes(*dstvector, dstoffset,
@@ -560,7 +581,7 @@ int writei(struct vfs_inode *vfs_ip, char *src, uint off, uint n) {
   if (off + n > MAXFILE * BSIZE) return -1;
 
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
-    bp = bread(ip->vfs_inode.sb->dev, bmap(ip, off / BSIZE));
+    bp = fs_bread(ip->vfs_inode.sb, bmap(ip, off / BSIZE));
     m = min(n - tot,  // NOLINT(build/include_what_you_use)
             BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
@@ -664,15 +685,13 @@ int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 //  Paths
 struct vfs_inode *initprocessroot(struct mount **mnt) {
   // TODO(AvivNaaman): Make it healthier
+  struct mount *m = getinitialrootmount();
   if (mnt != NULL) {
-    *mnt = getinitialrootmount();
+    *mnt = m;
   }
   // This is called during first process creation (in kernel mode, no context)
   // but fsinit is called in first usermode process context (kernel mode).
   // this causes *sb to be uninitialized and causes a banic once calling iget!
-  struct device *dev = getorcreateidedevice(ROOTDEV);
-  struct vfs_superblock *sb = getsuperblock(dev);
-  struct vfs_inode *inode = sb->ops->get_inode(sb, ROOTINO);
-  deviceput(dev);
+  struct vfs_inode *inode = m->sb->ops->get_inode(m->sb, ROOTINO);
   return inode;
 }

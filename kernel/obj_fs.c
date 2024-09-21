@@ -161,7 +161,7 @@ static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
   // Is the inode already cached?
   empty = 0;
   for (ip = &obj_icache.inode[0]; ip < &obj_icache.inode[NINODE]; ip++) {
-    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb->dev == sb->dev &&
+    if (ip->vfs_inode.ref > 0 && ip->vfs_inode.sb == sb &&
         ip->vfs_inode.inum == inum) {
       ip->vfs_inode.ref++;
       release(&obj_icache.lock);
@@ -183,8 +183,9 @@ static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
   ip->data_object_name[0] = 0;
   file_name(ip->data_object_name, inum);
 
+  struct device* dev = sb_private(sb);
   if (ref_device) {
-    deviceget(sb->dev);
+    deviceget(dev);
   }
 
   /* Initiate inode operations for obj fs */
@@ -203,7 +204,7 @@ void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device);
 
 static void obj_fsdestroy(struct vfs_superblock *vfs_sb) {
   struct vfs_inode *root_ip = vfs_sb->root_ip;
-  obj_iput_internal(root_ip, false);
+  obj_iput_internal(root_ip, true);
   vfs_sb->root_ip = NULL;
   vfs_sb->ops = NULL;
 }
@@ -212,20 +213,25 @@ static const struct sb_ops obj_ops = {
     .alloc_inode = obj_ialloc,
     .get_inode = obj_iget,
     .destroy = obj_fsdestroy,
+    .start = NULL
 };
 
-void obj_fsinit(struct vfs_superblock *vfs_sb) {
+void obj_fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
 
+  if (dev->type != DEVICE_TYPE_OBJ) {
+    panic("obj_fsinit: wrong device type");
+  }
+
   obj_iinit();
 
   vfs_sb->ops = &obj_ops;
-  vfs_sb->private = NULL;
+  vfs_sb->private = dev;
 
   /* Initiate root dir */
-  root_inode = obj_ialloc_internal(vfs_sb, T_DIR, false);
+  root_inode = obj_ialloc_internal(vfs_sb, T_DIR, true);
 
   /* Initiate inode for root dir */
   strncpy(de.name, ".", DIRSIZ);
@@ -347,7 +353,8 @@ void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device) {
 
   ip->vfs_inode.ref--;
   if (ip->vfs_inode.ref == 0 && ref_device) {
-    deviceput(ip->vfs_inode.sb->dev);
+    struct device* dev = sb_private(ip->vfs_inode.sb);
+    deviceput(dev);
   }
   release(&obj_icache.lock);
 }
@@ -368,7 +375,8 @@ void obj_iunlockput(struct vfs_inode *ip) {
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
   // TODO(AvivNaaman): Unite it too under VFS!
-  st->dev = ip->vfs_inode.sb->dev->id;
+  struct device *dev = sb_private(ip->vfs_inode.sb);
+  st->dev = dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;
   st->nlink = ip->vfs_inode.nlink;

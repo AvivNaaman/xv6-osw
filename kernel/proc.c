@@ -13,6 +13,7 @@
 #include "types.h"
 #include "wstatus.h"
 #include "x86.h"
+#include "mount.h"
 
 struct {
   struct spinlock lock;
@@ -636,11 +637,10 @@ void forkret(void) {
     // be run from main().
     first = 0;
 
-    struct device *root_dev = getorcreateidedevice(ROOTDEV);
-    fsstart(&root_dev->sb);
-    initlog(&root_dev->sb);
-    deviceput(root_dev);
-
+    struct vfs_superblock *sb = getinitialrootmount()->sb;
+    if (sb->ops->start) {
+      sb->ops->start(sb);
+    }
     init_objfs_log();
   }
 

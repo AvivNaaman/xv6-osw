@@ -11,8 +11,8 @@ struct mount {
   struct vfs_inode *mountpoint;
   /* Reference count. */
   int ref;
-  /* Associated device, applicable only for native-fs and obj-fs mounts. */
-  struct device *dev;
+  /* Associated mounted FS superblock. */
+  struct vfs_superblock* sb;
   /* Associated inode, applicable only for bind mounts. */
   struct vfs_inode *bind;
 };

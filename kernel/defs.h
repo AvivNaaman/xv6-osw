@@ -22,6 +22,7 @@ struct cgroup;
 struct objsuperblock;
 struct vfs_inode;
 struct vfs_file;
+struct vfs_superblock;
 struct device;
 typedef struct kvec vector;
 struct devsw;
@@ -56,7 +57,6 @@ struct device* getorcreateidedevice(uint ide_port);
 void deviceput(struct device*);
 void deviceget(struct device*);
 struct vfs_inode* getinodefordevice(struct device*);
-struct vfs_superblock* getsuperblock(struct device*);
 void devinit(void);
 int doesbackdevice(struct vfs_inode*);
 
@@ -73,13 +73,13 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // obj_fs.c
-void obj_fsinit(struct vfs_superblock* dev);
+void obj_fsinit(struct vfs_superblock*, struct device*);
 void obj_mkfs();
 
 // fs.c
 void readsb(struct vfs_superblock*, struct native_superblock* sb);
-void iinit(struct vfs_superblock*);
-void fsinit(struct vfs_superblock*);
+void iinit(struct vfs_superblock*, struct device*);
+void fsinit(struct vfs_superblock*, struct device*);
 void fsstart(struct vfs_superblock*);
 struct vfs_inode* initprocessroot(struct mount**);
 
@@ -90,6 +90,9 @@ struct vfs_inode* vfs_nameiparent(char*, char*);
 struct vfs_inode* vfs_nameiparentmount(char*, char*, struct mount**);
 int vfs_namecmp(const char*, const char*);
 int vfs_namencmp(const char* s, const char* t, int length);
+struct vfs_superblock *sballoc();
+void sbdup(struct vfs_superblock *sb);
+void sbput(struct vfs_superblock *sb);
 
 // sysmount.c
 int handle_objfs_mounts();
@@ -100,7 +103,7 @@ int handle_nativefs_mounts();
 
 // mount.c
 void mntinit(void);
-int mount(struct vfs_inode*, struct vfs_inode*, struct vfs_inode*,
+int mount(struct vfs_inode*, struct device*, struct vfs_inode*,
           struct mount*);
 int umount(struct mount*);
 struct mount* getrootmount(void);

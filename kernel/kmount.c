@@ -25,17 +25,38 @@ struct mount_list *getactivemounts(struct mount_ns *ns) {
 }
 
 // Parent mount (if it exists) must already be ref-incremented.
-static void addmountinternal(struct mount_list *mnt_list, struct device *dev,
+static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
                              struct vfs_inode *mountpoint, struct mount *parent,
                              struct vfs_inode *bind, struct mount_ns *ns) {
+  // allocate superblock
+  struct vfs_superblock *vfs_sb = sballoc();
+
+  mnt_list->mnt.sb = vfs_sb;
   mnt_list->mnt.mountpoint = mountpoint;
-  mnt_list->mnt.dev = dev;
   mnt_list->mnt.parent = parent;
   mnt_list->mnt.bind = bind;
+
+  // initialize filesystem
+  if (dev != NULL) {
+    switch (dev->type)
+    {
+      case DEVICE_TYPE_IDE:
+        iinit(mnt_list->mnt.sb, dev); 
+      case DEVICE_TYPE_LOOP:
+        fsinit(mnt_list->mnt.sb, dev);
+        break;
+      case DEVICE_TYPE_OBJ:
+        obj_fsinit(mnt_list->mnt.sb, dev);
+        break;
+      default:
+        return -1;
+    }
+  }
 
   // add to linked list
   mnt_list->next = getactivemounts(ns);
   ns->active_mounts = mnt_list;
+  return 0;
 }
 
 struct mount *getinitialrootmount(void) {
@@ -48,7 +69,7 @@ void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
   addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV), 0,
-                   0, 0, get_root_mount_ns());
+                   0, 0, get_root_mount_ns()) ; // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;
   get_root_mount_ns()->root = getinitialrootmount();
 }
@@ -87,28 +108,17 @@ static struct mount_list *allocmntlist(void) {
 }
 
 // mountpoint and device must be locked.
-int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
+int mount(struct vfs_inode *mountpoint, struct device *target_dev,
           struct vfs_inode *bind_dir, struct mount *parent) {
   struct mount_list *newmountentry = allocmntlist();
   struct mount *newmount = &newmountentry->mnt;
-  struct device *dev = NULL;
 
-  if (device != 0) {
-    dev = getorcreatedevice(device);
-    if (dev == NULL) {
-      newmount->ref = 0;
-      cprintf("failed to create device.\n");
-      return -1;
-    }
-  } else if (bind_dir == 0) {
-    dev = getorcreateobjdevice();
-    if (dev == NULL) {
-      newmount->ref = 0;
-      cprintf("failed to create ObjFS device.\n");
-      return -1;
-    }
-  } else {
-    /* Bind mount, do nothing. */
+  // if both target_dev and bind_dir are set, it's an error.
+  // but we must have at least one of them. 
+  if ((target_dev == 0) == (bind_dir == 0)) {
+    newmount->ref = 0;
+    cprintf("mount: must have exactly one of target_dev or bind_dir\n");
+    return -1;
   }
 
   acquire(&myproc()->nsproxy->mount_ns->lock);
@@ -118,7 +128,9 @@ int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
         current->mnt.mountpoint == mountpoint) {
       // error - mount already exists.
       release(&myproc()->nsproxy->mount_ns->lock);
-      deviceput(dev);
+      if (target_dev) {
+        deviceput(target_dev);
+      }
       newmount->ref = 0;
       cprintf("mount already exists at that point.\n");
       return -1;
@@ -127,9 +139,13 @@ int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
   }
 
   mntdup(parent);
-  addmountinternal(newmountentry, dev, mountpoint, parent, bind_dir,
+  addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
                    myproc()->nsproxy->mount_ns);
   release(&myproc()->nsproxy->mount_ns->lock);
+  if (newmount->sb->ops->start != NULL)
+{  
+  newmount->sb->ops->start(newmount->sb);
+}
   return 0;
 }
 
@@ -176,12 +192,10 @@ int umount(struct mount *mnt) {
   struct vfs_inode *oldmountpoint = current->mnt.mountpoint;
   struct vfs_inode *oldbind = current->mnt.bind;
 
-  struct device *olddev = current->mnt.dev;
   current->mnt.bind = 0;
   current->mnt.mountpoint = 0;
   current->mnt.parent->ref--;
   current->mnt.ref = 0;
-  current->mnt.dev = 0;
   current->next = 0;
 
   release(&mount_holder.mnt_list_lock);
@@ -190,7 +204,10 @@ int umount(struct mount *mnt) {
     oldbind->i_op->iput(oldbind);
   }
   oldmountpoint->i_op->iput(oldmountpoint);
-  deviceput(olddev);
+  
+  sbput(current->mnt.sb);
+  // clear the superblock struct
+  memset(&current->mnt.sb, 0, sizeof(current->mnt.sb));
   return 0;
 }
 
@@ -243,8 +260,8 @@ static struct mount_list *shallowcopyactivemounts(struct mount **newcwdmount) {
       newentry->mnt.mountpoint = 0;
     }
     newentry->mnt.parent = 0;
-    newentry->mnt.dev = entry->mnt.dev;
-    deviceget(newentry->mnt.dev);
+    sbdup(entry->mnt.sb);
+    newentry->mnt.sb = entry->mnt.sb;
     if (prev != 0) {
       prev->next = newentry;
     }
