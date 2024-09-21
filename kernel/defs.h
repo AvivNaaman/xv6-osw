@@ -169,7 +169,7 @@ void end_op();
 void mount_nsinit(void);
 void mount_nsput(struct mount_ns*);
 struct mount_ns* mount_nsdup(struct mount_ns*);
-struct mount_ns* newmount_ns(void);
+struct mount_ns* get_root_mount_ns(void);
 struct mount_ns* copymount_ns(void);
 
 // mp.c

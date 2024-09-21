@@ -17,22 +17,25 @@ struct {
   struct mount_list mnt_list[NMOUNT];
 } mount_holder;
 
-struct mount_list *getactivemounts() {
-  return myproc()->nsproxy->mount_ns->active_mounts;
+struct mount_list *getactivemounts(struct mount_ns *ns) {
+  if (ns == NULL) {
+    ns = myproc()->nsproxy->mount_ns;
+  }
+  return ns->active_mounts;
 }
 
 // Parent mount (if it exists) must already be ref-incremented.
 static void addmountinternal(struct mount_list *mnt_list, struct device *dev,
                              struct vfs_inode *mountpoint, struct mount *parent,
-                             struct vfs_inode *bind) {
+                             struct vfs_inode *bind, struct mount_ns *ns) {
   mnt_list->mnt.mountpoint = mountpoint;
   mnt_list->mnt.dev = dev;
   mnt_list->mnt.parent = parent;
   mnt_list->mnt.bind = bind;
 
   // add to linked list
-  mnt_list->next = getactivemounts();
-  myproc()->nsproxy->mount_ns->active_mounts = mnt_list;
+  mnt_list->next = getactivemounts(ns);
+  ns->active_mounts = mnt_list;
 }
 
 struct mount *getinitialrootmount(void) {
@@ -45,9 +48,9 @@ void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
   addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV), 0,
-                   0, 0);
+                   0, 0, get_root_mount_ns());
   mount_holder.mnt_list[0].mnt.ref = 1;
-  myproc()->nsproxy->mount_ns->root = getinitialrootmount();
+  get_root_mount_ns()->root = getinitialrootmount();
 }
 
 struct mount *mntdup(struct mount *mnt) {
@@ -109,7 +112,7 @@ int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
   }
 
   acquire(&myproc()->nsproxy->mount_ns->lock);
-  struct mount_list *current = getactivemounts();
+  struct mount_list *current = getactivemounts(NULL);
   while (current != 0) {
     if (current->mnt.parent == parent &&
         current->mnt.mountpoint == mountpoint) {
@@ -124,14 +127,15 @@ int mount(struct vfs_inode *mountpoint, struct vfs_inode *device,
   }
 
   mntdup(parent);
-  addmountinternal(newmountentry, dev, mountpoint, parent, bind_dir);
+  addmountinternal(newmountentry, dev, mountpoint, parent, bind_dir,
+                   myproc()->nsproxy->mount_ns);
   release(&myproc()->nsproxy->mount_ns->lock);
   return 0;
 }
 
 int umount(struct mount *mnt) {
   acquire(&myproc()->nsproxy->mount_ns->lock);
-  struct mount_list *current = getactivemounts();
+  struct mount_list *current = getactivemounts(NULL);
   struct mount_list **previous = &(myproc()->nsproxy->mount_ns->active_mounts);
   while (current != 0) {
     if (&current->mnt == mnt) {
@@ -193,7 +197,7 @@ int umount(struct mount *mnt) {
 struct mount *mntlookup(struct vfs_inode *mountpoint, struct mount *parent) {
   acquire(&myproc()->nsproxy->mount_ns->lock);
 
-  struct mount_list *entry = getactivemounts();
+  struct mount_list *entry = getactivemounts(NULL);
   while (entry != 0) {
     /* Search for a matching mountpoint and also a parent mount, unless it is a
      * bind mount which inherently has different parents. */

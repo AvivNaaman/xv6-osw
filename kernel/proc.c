@@ -642,7 +642,6 @@ void forkret(void) {
     deviceput(root_dev);
 
     init_objfs_log();
-    mntinit();  // initialize mounts
   }
 
   // Return to "caller", actually trapret (see allocproc).

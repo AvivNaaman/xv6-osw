@@ -42,19 +42,24 @@ int main(void) {
   uartinit();                         // serial port
   pinit();                            // process table
   tvinit();                           // trap vectors
-  binit();                            // buffer cache
-  vfs_fileinit();                     // file table
-  devinit();                          // initialize devices
+
+  namespaceinit();  // initialize namespaces
+
+  // File system init
+  binit();         // buffer cache
+  vfs_fileinit();  // file table
+  devinit();       // initialize devices
+  mntinit();       // initialize mounts
+  ideinit();       // disk
   if (getorcreateidedevice(ROOTDEV) == NULL)
-    panic("Failed to mount /!");               // mount root file system
-  objfsinit();                                 // objfs disk
-  ideinit();                                   // disk
+    panic("Failed to mount /!");  // mount root file system
+  objfsinit();                    // objfs disk
+
   startothers();                               // start other processors
   kinit2(P2V(4 * 1024 * 1024), P2V(PHYSTOP));  // must come after startothers()
-  cginit();         // cgroup table, must come before userinit()
-  userinit();       // first user process
-  namespaceinit();  // initialize namespaces
-  mpmain();         // finish this processor's setup
+  cginit();    // cgroup table, must come before userinit()
+  userinit();  // first user process
+  mpmain();    // finish this processor's setup
 }
 
 static void objfsinit(void) { obj_mkfs(); }
