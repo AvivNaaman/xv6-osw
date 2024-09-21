@@ -637,8 +637,8 @@ void forkret(void) {
     first = 0;
 
     struct device *root_dev = getorcreateidedevice(ROOTDEV);
-    fsstart(root_dev);
-    initlog(root_dev);
+    fsstart(&root_dev->sb);
+    initlog(&root_dev->sb);
     deviceput(root_dev);
 
     init_objfs_log();

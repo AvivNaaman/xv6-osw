@@ -78,10 +78,10 @@ void obj_fsinit(struct device* dev);
 void obj_mkfs();
 
 // fs.c
-void readsb(struct device* dev, struct native_superblock* sb);
+void readsb(struct vfs_superblock* dev, struct native_superblock* sb);
 void iinit(struct device* dev);
 void fsinit(struct device* dev);
-void fsstart(struct device* dev);
+void fsstart(struct vfs_superblock*);
 struct vfs_inode* initprocessroot(struct mount**);
 
 // vfs_fs.c
@@ -160,7 +160,7 @@ void lapicstartap(uchar, uint);
 void microdelay(int);
 
 // log.c
-void initlog(struct device* dev);
+void initlog(struct vfs_superblock*);
 void log_write(struct buf*);
 void begin_op();
 void end_op();

@@ -42,19 +42,19 @@ int isdirempty(struct vfs_inode *);
 static void itrunc(struct vfs_inode *ip);
 
 // Read the super block.
-void readsb(struct device *dev, struct native_superblock *sb) {
+void readsb(struct vfs_superblock *vfs_sb, struct native_superblock *sb) {
   struct buf *bp;
 
-  bp = bread(dev, 1);
+  bp = bread(vfs_sb->dev, 1);
   memmove(sb, bp->data, sizeof(*sb));
   brelse(bp);
 }
 
 // Zero a block.
-static void bzero(struct device *dev, int bno) {
+static void bzero(struct vfs_superblock *vfs_sb, int bno) {
   struct buf *bp;
 
-  bp = bread(dev, bno);
+  bp = bread(vfs_sb->dev, bno);
   memset(bp->data, 0, BSIZE);
   log_write(bp);
   brelse(bp);
@@ -63,23 +63,22 @@ static void bzero(struct device *dev, int bno) {
 // Blocks.
 
 // Allocate a zeroed disk block.
-static uint balloc(struct device *dev) {
+static uint balloc(struct vfs_superblock *vfs_sb) {
   int b, bi, m;
   struct buf *bp;
 
   bp = 0;
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = sb_private(vfs_sb);
 
   for (b = 0; b < sb->size; b += BPB) {
-    bp = bread(dev, BBLOCK(b, *sb));
+    bp = bread(vfs_sb->dev, BBLOCK(b, *sb));
     for (bi = 0; bi < BPB && b + bi < sb->size; bi++) {
       m = 1 << (bi % 8);
       if ((bp->data[bi / 8] & m) == 0) {  // Is block free?
         bp->data[bi / 8] |= m;            // Mark block in use.
         log_write(bp);
         brelse(bp);
-        bzero(dev, b + bi);
+        bzero(vfs_sb, b + bi);
         return b + bi;
       }
     }
@@ -89,14 +88,13 @@ static uint balloc(struct device *dev) {
 }
 
 // Free a disk block.
-static void bfree(struct device *dev, uint b) {
+static void bfree(struct vfs_superblock *vfs_sb, uint b) {
   struct buf *bp;
   int bi, m;
 
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
   struct native_superblock *sb = sb_private(vfs_sb);
-  readsb(dev, sb);
-  bp = bread(dev, BBLOCK(b, *sb));
+  readsb(vfs_sb, sb);
+  bp = bread(vfs_sb->dev, BBLOCK(b, *sb));
   bi = b % BPB;
   m = 1 << (bi % 8);
   if ((bp->data[bi / 8] & m) == 0) panic("freeing free block");
@@ -309,13 +307,12 @@ void fsinit(struct device *dev) {
 }
 
 // Must run from context of a process (uses sleep locks)
-void fsstart(struct device *dev) {
-  struct vfs_superblock *vfs_sb = getsuperblock(dev);
+void fsstart(struct vfs_superblock *vfs_sb) {
   if (vfs_sb->private == 0) {
     panic("fsstart: fsinit not called");
   }
-  struct native_superblock *sb = sb_private(getsuperblock(dev));
-  readsb(dev, sb);
+  struct native_superblock *sb = sb_private(vfs_sb);
+  readsb(vfs_sb, sb);
   vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, false);
 }
 
@@ -443,7 +440,7 @@ static uint bmap(struct inode *ip, uint bn) {
 
   if (bn < NDIRECT) {
     if ((addr = ip->addrs[bn]) == 0)
-      ip->addrs[bn] = addr = balloc(ip->vfs_inode.sb->dev);
+      ip->addrs[bn] = addr = balloc(ip->vfs_inode.sb);
     return addr;
   }
   bn -= NDIRECT;
@@ -451,11 +448,11 @@ static uint bmap(struct inode *ip, uint bn) {
   if (bn < NINDIRECT) {
     // Load indirect block, allocating if necessary.
     if ((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->vfs_inode.sb->dev);
+      ip->addrs[NDIRECT] = addr = balloc(ip->vfs_inode.sb);
     bp = bread(ip->vfs_inode.sb->dev, addr);
     a = (uint *)bp->data;
     if ((addr = a[bn]) == 0) {
-      a[bn] = addr = balloc(ip->vfs_inode.sb->dev);
+      a[bn] = addr = balloc(ip->vfs_inode.sb);
       log_write(bp);
     }
     brelse(bp);
@@ -478,7 +475,7 @@ static void itrunc(struct vfs_inode *vfs_ip) {
 
   for (i = 0; i < NDIRECT; i++) {
     if (ip->addrs[i]) {
-      bfree(ip->vfs_inode.sb->dev, ip->addrs[i]);
+      bfree(ip->vfs_inode.sb, ip->addrs[i]);
       ip->addrs[i] = 0;
     }
   }
@@ -487,10 +484,10 @@ static void itrunc(struct vfs_inode *vfs_ip) {
     bp = bread(ip->vfs_inode.sb->dev, ip->addrs[NDIRECT]);
     a = (uint *)bp->data;
     for (j = 0; j < NINDIRECT; j++) {
-      if (a[j]) bfree(ip->vfs_inode.sb->dev, a[j]);
+      if (a[j]) bfree(ip->vfs_inode.sb, a[j]);
     }
     brelse(bp);
-    bfree(ip->vfs_inode.sb->dev, ip->addrs[NDIRECT]);
+    bfree(ip->vfs_inode.sb, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
   }
 

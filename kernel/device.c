@@ -75,7 +75,7 @@ struct device* getorcreatedevice(struct vfs_inode* ip) {
   empty_device->ops = &loop_device_ops;
 
   fsinit(empty_device);
-  fsstart(empty_device);
+  fsstart(&empty_device->sb);
 
   return empty_device;
 }

@@ -53,15 +53,15 @@ struct log log;
 static void recover_from_log(void);
 static void commit();
 
-void initlog(struct device *dev) {
+void initlog(struct vfs_superblock *vfs_sb) {
   if (sizeof(struct logheader) >= BSIZE) panic("initlog: too big logheader");
 
   struct native_superblock sb;
   initlock(&log.lock, "log");
-  readsb(dev, &sb);
+  readsb(vfs_sb, &sb);
   log.start = sb.logstart;
   log.size = sb.nlog;
-  log.dev = dev;
+  log.dev = vfs_sb->dev;
   recover_from_log();
 }
 
