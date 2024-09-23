@@ -72,10 +72,9 @@ void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
   if (addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV),
-                   NULL, NULL, NULL,
-                   get_root_mount_ns())) {
-panic("failed to initialize root mount");
-                   }  // fs start later in init
+                       NULL, NULL, NULL, get_root_mount_ns())) {
+    panic("failed to initialize root mount");
+  }  // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;
   get_root_mount_ns()->root = getinitialrootmount();
 }
@@ -147,13 +146,13 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
   mntdup(parent);
 
   if (addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
-                   myproc()->nsproxy->mount_ns)) {
+                       myproc()->nsproxy->mount_ns)) {
     release(&myproc()->nsproxy->mount_ns->lock);
     deviceput(target_dev);
     newmount->ref = 0;
     mntput(parent);
     return -1;
-                   }
+  }
   mountpoint->mnt = newmount;
   release(&myproc()->nsproxy->mount_ns->lock);
   if (!newmount->isbind && newmount->sb->ops->start != NULL) {

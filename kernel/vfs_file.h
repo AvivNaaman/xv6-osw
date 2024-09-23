@@ -146,7 +146,7 @@ struct vfs_inode {
   short minor;
   short nlink;
   const struct inode_operations *i_op;
-  struct mount *mnt;          // if this inode is a mount point, this is the mount
+  struct mount *mnt;  // if this inode is a mount point, this is the mount
 };
 
 // table mapping major device number to

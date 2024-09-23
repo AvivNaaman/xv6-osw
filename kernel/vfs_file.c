@@ -8,11 +8,11 @@
 #include "device.h"
 #include "file.h"
 #include "fs.h"
+#include "mount.h"
 #include "param.h"
 #include "sleeplock.h"
 #include "spinlock.h"
 #include "types.h"
-#include "mount.h"
 
 struct devsw devsw[NDEV];
 struct ftable_s ftable;
