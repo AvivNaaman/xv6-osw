@@ -11,10 +11,16 @@ struct mount {
   struct vfs_inode *mountpoint;
   /* Reference count. */
   int ref;
-  /* Associated mounted FS superblock. */
-  struct vfs_superblock *sb;
-  /* Associated inode, applicable only for bind mounts. */
-  struct vfs_inode *bind;
+
+  /* Whether this is a bind mount. */
+  bool isbind;
+
+  union {
+    /* Associated mounted FS superblock. Used if !isbind. */
+    struct vfs_superblock *sb;
+    /* Associated inode, applicable only for bind mounts. Used if isbind. */
+    struct vfs_inode *bind;
+  };
 };
 
 #define NMOUNT (200)

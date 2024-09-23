@@ -336,4 +336,9 @@ typedef enum {
   RESULT_SUCCESS_OPERATION
 } result_code;
 
+#define XV6_ASSERT(cond)               \
+  if (!(cond)) {                       \
+    panic("Assertion failed: " #cond); \
+  }
+
 #endif /* XV6_DEFS_H */

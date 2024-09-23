@@ -96,9 +96,11 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       curmount = nextmount;
       ip->i_op->iput(next);
 
-      if (curmount->bind != NULL) {
+      if (curmount->isbind) {
+        XV6_ASSERT(curmount->bind != 0);
         next = curmount->bind->i_op->idup(curmount->bind);
       } else {
+        XV6_ASSERT(curmount->sb != 0);
         struct vfs_inode *root_inode = curmount->sb->root_ip;
         next = root_inode->i_op->idup(root_inode);  // ref
       }

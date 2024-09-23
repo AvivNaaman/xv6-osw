@@ -28,16 +28,20 @@ struct mount_list *getactivemounts(struct mount_ns *ns) {
 static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
                             struct vfs_inode *mountpoint, struct mount *parent,
                             struct vfs_inode *bind, struct mount_ns *ns) {
-  // allocate superblock
-  struct vfs_superblock *vfs_sb = sballoc();
-
-  mnt_list->mnt.sb = vfs_sb;
-  mnt_list->mnt.mountpoint = mountpoint;
   mnt_list->mnt.parent = parent;
-  mnt_list->mnt.bind = bind;
+  mnt_list->mnt.mountpoint = mountpoint;
 
-  // initialize filesystem
-  if (dev != NULL) {
+  if (bind != NULL) {
+    XV6_ASSERT(dev == NULL);
+    mnt_list->mnt.bind = bind;
+    mnt_list->mnt.isbind = true;
+  } else {
+    XV6_ASSERT(dev != NULL);
+    // allocate superblock
+    struct vfs_superblock *vfs_sb = sballoc();
+    mnt_list->mnt.sb = vfs_sb;
+    mnt_list->mnt.isbind = false;
+    // initialize filesystem
     switch (dev->type) {
       case DEVICE_TYPE_IDE:
         iinit(mnt_list->mnt.sb, dev);
@@ -67,8 +71,9 @@ struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
-  addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV), 0,
-                   0, 0, get_root_mount_ns());  // fs start later in init
+  addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV),
+                   NULL, NULL, NULL,
+                   get_root_mount_ns());  // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;
   get_root_mount_ns()->root = getinitialrootmount();
 }
@@ -114,7 +119,7 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
 
   // if both target_dev and bind_dir are set, it's an error.
   // but we must have at least one of them.
-  if ((target_dev == 0) == (bind_dir == 0)) {
+  if ((target_dev == NULL) == (bind_dir == NULL)) {
     newmount->ref = 0;
     cprintf("mount: must have exactly one of target_dev or bind_dir\n");
     return -1;
@@ -141,7 +146,7 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
   addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
                    myproc()->nsproxy->mount_ns);
   release(&myproc()->nsproxy->mount_ns->lock);
-  if (newmount->sb->ops->start != NULL) {
+  if (!newmount->isbind && newmount->sb->ops->start != NULL) {
     newmount->sb->ops->start(newmount->sb);
   }
   return 0;
@@ -188,13 +193,15 @@ int umount(struct mount *mnt) {
   release(&myproc()->nsproxy->mount_ns->lock);
 
   struct vfs_inode *oldmountpoint = current->mnt.mountpoint;
-  struct vfs_inode *oldbind = current->mnt.bind;
 
-  current->mnt.bind = 0;
-  current->mnt.mountpoint = 0;
+  struct vfs_inode *oldbind = current->mnt.isbind ? current->mnt.bind : NULL;
+  struct vfs_superblock *sb = !current->mnt.isbind ? current->mnt.sb : NULL;
+
+  current->mnt.bind = NULL;
+  current->mnt.mountpoint = NULL;
   current->mnt.parent->ref--;
   current->mnt.ref = 0;
-  current->next = 0;
+  current->next = NULL;
 
   release(&mount_holder.mnt_list_lock);
 
@@ -203,9 +210,9 @@ int umount(struct mount *mnt) {
   }
   oldmountpoint->i_op->iput(oldmountpoint);
 
-  sbput(current->mnt.sb);
-  // clear the superblock struct
-  memset(&current->mnt.sb, 0, sizeof(current->mnt.sb));
+  if (sb) {
+    sbput(sb);
+  }
   return 0;
 }
 
@@ -217,7 +224,7 @@ struct mount *mntlookup(struct vfs_inode *mountpoint, struct mount *parent) {
     /* Search for a matching mountpoint and also a parent mount, unless it is a
      * bind mount which inherently has different parents. */
     if (entry->mnt.mountpoint == mountpoint &&
-        (entry->mnt.parent == parent || entry->mnt.bind != NULL)) {
+        (entry->mnt.parent == parent || entry->mnt.isbind)) {
       release(&myproc()->nsproxy->mount_ns->lock);
       return mntdup(&entry->mnt);
     }
@@ -258,8 +265,14 @@ static struct mount_list *shallowcopyactivemounts(struct mount **newcwdmount) {
       newentry->mnt.mountpoint = 0;
     }
     newentry->mnt.parent = 0;
-    sbdup(entry->mnt.sb);
-    newentry->mnt.sb = entry->mnt.sb;
+    if (entry->mnt.isbind) {
+      XV6_ASSERT(entry->mnt.bind != 0);
+      newentry->mnt.bind = entry->mnt.bind->i_op->idup(entry->mnt.bind);
+    } else {
+      XV6_ASSERT(entry->mnt.sb != 0);
+      sbdup(entry->mnt.sb);
+      newentry->mnt.sb = entry->mnt.sb;
+    }
     if (prev != 0) {
       prev->next = newentry;
     }
