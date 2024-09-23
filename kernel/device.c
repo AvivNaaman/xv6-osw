@@ -19,6 +19,7 @@ void devinit(void) {
     dev->ops = NULL;
     dev->private = NULL;
   }
+  memset(dev_holder.devs_count, 0, sizeof(dev_holder.devs_count));
 }
 
 static void destroy_dev_default(struct device* dev) { dev->private = NULL; }
@@ -39,7 +40,22 @@ static const struct device_ops loop_device_ops = {
     .destroy = &destory_loop_dev,
 };
 
+static void initialize_device(struct device* dev, enum device_type type) {
+  XV6_ASSERT(dev->ref == 0);
+  XV6_ASSERT(type < DEVICE_TYPE_MAX);
+  dev->ref = 1;
+  dev->type = type;
+  dev->private = NULL;
+  dev->ops = &default_device_ops;
+
+  dev_holder.devs_count[type]++;
+}
+
 struct device* getorcreatedevice(struct vfs_inode* ip) {
+  if (dev_holder.devs_count[DEVICE_TYPE_LOOP] >= MAX_LOOP_DEVS_NUM) {
+    return NULL;
+  }
+
   acquire(&dev_holder.lock);
   struct device* empty_device = NULL;
   for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
@@ -65,8 +81,7 @@ struct device* getorcreatedevice(struct vfs_inode* ip) {
     return empty_device;
   }
 
-  empty_device->ref = 1;
-  empty_device->type = DEVICE_TYPE_LOOP;
+  initialize_device(empty_device, DEVICE_TYPE_LOOP);
   empty_device->private = ip->i_op->idup(ip);
   empty_device->ops = &loop_device_ops;
 
@@ -74,6 +89,9 @@ struct device* getorcreatedevice(struct vfs_inode* ip) {
 }
 
 struct device* getorcreateobjdevice() {
+  if (dev_holder.devs_count[DEVICE_TYPE_OBJ] >= MAX_OBJ_DEVS_NUM) {
+    return NULL;
+  }
   acquire(&dev_holder.lock);
   struct device* empty_device = NULL;
   for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
@@ -91,10 +109,7 @@ struct device* getorcreateobjdevice() {
     return NULL;
   }
 
-  empty_device->ref = 1;
-  empty_device->type = DEVICE_TYPE_OBJ;
-  empty_device->ops = &default_device_ops;
-  empty_device->private = NULL;
+  initialize_device(empty_device, DEVICE_TYPE_OBJ);
 
   release(&dev_holder.lock);
   return empty_device;
@@ -107,12 +122,19 @@ void deviceget(struct device* dev) {
 }
 
 void deviceput(struct device* d) {
+  XV6_ASSERT(d->type > DEVICE_TYPE_NONE);
+  XV6_ASSERT(d->type < DEVICE_TYPE_MAX);
+  XV6_ASSERT(d->ref > 0);
   acquire(&dev_holder.lock);
   if (d->ref == 1) {
     release(&dev_holder.lock);
 
     // now we can destroy the device.
     d->ops->destroy(d);
+
+    // update counter
+    XV6_ASSERT(dev_holder.devs_count[d->type] > 0);
+    dev_holder.devs_count[d->type]--;
 
     // remove fields
     d->type = DEVICE_TYPE_NONE;
@@ -124,6 +146,7 @@ void deviceput(struct device* d) {
   d->ref--;
   release(&dev_holder.lock);
 }
+
 struct vfs_inode* getinodefordevice(struct device* dev) {
   if (dev->type != DEVICE_TYPE_LOOP) {
     return 0;
@@ -149,6 +172,9 @@ int doesbackdevice(struct vfs_inode* ip) {
 }
 
 struct device* getorcreateidedevice(uint ide_port) {
+  if (dev_holder.devs_count[DEVICE_TYPE_IDE] >= MAX_IDE_DEVS_NUM) {
+    return NULL;
+  }
   acquire(&dev_holder.lock);
   struct device* empty_device = NULL;
   for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
@@ -176,7 +202,7 @@ struct device* getorcreateidedevice(uint ide_port) {
     return empty_device;
   }
 
-  empty_device->type = DEVICE_TYPE_IDE;
+  initialize_device(empty_device, DEVICE_TYPE_IDE);
   empty_device->private = (void*)ide_port;
   empty_device->ops = &default_device_ops;
 

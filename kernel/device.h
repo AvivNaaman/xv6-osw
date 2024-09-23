@@ -5,11 +5,11 @@
 #include "obj_fs.h"
 #include "spinlock.h"
 
-#define NLOOPDEVS_ (10)
-#define NIDEDEVS_ (2)
-#define NOBJDEVS_ (2)
+#define MAX_LOOP_DEVS_NUM (10)
+#define MAX_IDE_DEVS_NUM (1)  // currently only one ide device is supported
+#define MAX_OBJ_DEVS_NUM (2)
 
-#define NMAXDEVS (NLOOPDEVS_ + NIDEDEVS_ + NOBJDEVS_)
+#define NMAXDEVS (MAX_LOOP_DEVS_NUM + MAX_IDE_DEVS_NUM + MAX_OBJ_DEVS_NUM)
 
 struct device;
 
@@ -18,6 +18,8 @@ enum device_type {
   DEVICE_TYPE_IDE,
   DEVICE_TYPE_LOOP,
   DEVICE_TYPE_OBJ,
+
+  DEVICE_TYPE_MAX
 };
 
 struct device_ops {
@@ -35,6 +37,7 @@ struct device {
 struct dev_holder_s {
   struct spinlock lock;  // protects loopdevs
   struct device devs[NMAXDEVS];
+  uint devs_count[DEVICE_TYPE_MAX];
 };
 
 extern struct dev_holder_s dev_holder;
