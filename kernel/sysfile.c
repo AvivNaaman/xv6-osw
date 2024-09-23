@@ -211,7 +211,7 @@ int sys_unlink(void) {
       goto bad;
     }
 
-    // 4. erase content of the unlinked directory entry
+    // 4. erase content of the unlinked directory entry in the parent
     memset(&de, 0, sizeof(de));
     if (dp->i_op->writei(dp, (char *)&de, off, sizeof(de)) != sizeof(de))
       panic("unlink: writei");
@@ -224,6 +224,12 @@ int sys_unlink(void) {
     ip->nlink--;
     ip->i_op->iupdate(ip);
     ip->i_op->iunlockput(ip);
+
+    // umount on the unlinked file
+    if (ip->mnt != NULL) {
+      XV6_ASSERT(ip->type == T_DIR);
+      umount(ip->mnt);
+    }
   }
   if (delete_cgroup_res == RESULT_ERROR_OPERATION) {
     end_op();

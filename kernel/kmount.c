@@ -71,9 +71,11 @@ struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
-  addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV),
+  if (addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV),
                    NULL, NULL, NULL,
-                   get_root_mount_ns());  // fs start later in init
+                   get_root_mount_ns())) {
+panic("failed to initialize root mount");
+                   }  // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;
   get_root_mount_ns()->root = getinitialrootmount();
 }
@@ -111,7 +113,7 @@ static struct mount_list *allocmntlist(void) {
   return newmountentry;
 }
 
-// mountpoint and device must be locked.
+// mountpoint and bind_dir must be locked.
 int mount(struct vfs_inode *mountpoint, struct device *target_dev,
           struct vfs_inode *bind_dir, struct mount *parent) {
   struct mount_list *newmountentry = allocmntlist();
@@ -143,8 +145,16 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
   }
 
   mntdup(parent);
-  addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
-                   myproc()->nsproxy->mount_ns);
+
+  if (addmountinternal(newmountentry, target_dev, mountpoint, parent, bind_dir,
+                   myproc()->nsproxy->mount_ns)) {
+    release(&myproc()->nsproxy->mount_ns->lock);
+    deviceput(target_dev);
+    newmount->ref = 0;
+    mntput(parent);
+    return -1;
+                   }
+  mountpoint->mnt = newmount;
   release(&myproc()->nsproxy->mount_ns->lock);
   if (!newmount->isbind && newmount->sb->ops->start != NULL) {
     newmount->sb->ops->start(newmount->sb);
@@ -208,7 +218,10 @@ int umount(struct mount *mnt) {
   if (oldbind) {
     oldbind->i_op->iput(oldbind);
   }
-  oldmountpoint->i_op->iput(oldmountpoint);
+
+  oldmountpoint->i_op->ilock(oldmountpoint);
+  oldmountpoint->mnt = NULL;
+  oldmountpoint->i_op->iunlockput(oldmountpoint);
 
   if (sb) {
     sbput(sb);
@@ -265,6 +278,7 @@ static struct mount_list *shallowcopyactivemounts(struct mount **newcwdmount) {
       newentry->mnt.mountpoint = 0;
     }
     newentry->mnt.parent = 0;
+    newentry->mnt.isbind = entry->mnt.isbind;
     if (entry->mnt.isbind) {
       XV6_ASSERT(entry->mnt.bind != 0);
       newentry->mnt.bind = entry->mnt.bind->i_op->idup(entry->mnt.bind);

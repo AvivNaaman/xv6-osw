@@ -12,6 +12,7 @@
 #include "sleeplock.h"
 #include "spinlock.h"
 #include "types.h"
+#include "mount.h"
 
 struct devsw devsw[NDEV];
 struct ftable_s ftable;
@@ -26,6 +27,7 @@ struct vfs_file *vfs_filealloc(void) {
   for (f = ftable.file; f < ftable.file + NFILE; f++) {
     if (f->ref == 0) {
       f->ref = 1;
+      f->mnt = NULL;
       release(&ftable.lock);
       return f;
     }
