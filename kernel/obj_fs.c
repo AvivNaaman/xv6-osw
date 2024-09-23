@@ -372,7 +372,6 @@ void obj_iunlockput(struct vfs_inode *ip) {
 // Caller must hold ip->lock.
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
-  // TODO(AvivNaaman): Unite it too under VFS!
   struct device *dev = sb_private(ip->vfs_inode.sb);
   st->dev = dev->id;
   st->ino = ip->vfs_inode.inum;

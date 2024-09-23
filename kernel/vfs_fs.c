@@ -79,7 +79,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
     mntinum = ip->inum;
     ip->i_op->iunlockput(ip);
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
-        (curmount != getinitialrootmount()) &&  // TODO(Aviv): Make it healthier
+        (curmount != getinitialrootmount()) &&
         ((mntinum == ROOTINO) || (mntinum == OBJ_ROOTINO)) &&
         curmount->mountpoint != 0 &&
         curmount->mountpoint->i_op->dirlookup != NULL) {

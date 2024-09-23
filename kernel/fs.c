@@ -205,7 +205,7 @@ static struct vfs_inode *ialloc(struct vfs_superblock *vfs_sb, file_type type) {
   struct buf *bp;
   struct dinode *dip;
 
-  // todo: assert fsstart() called
+  XV6_ASSERT(vfs_sb->private != NULL);
   struct native_superblock_private *sbp = sb_private(vfs_sb);
   struct native_superblock *sb = &sbp->sb;
   for (inum = 1; inum < sb->ninodes; inum++) {
@@ -244,7 +244,7 @@ static const struct inode_operations native_inode_ops = {
 static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
                                        bool ref_device) {
   struct inode *ip, *empty;
-  // todo: assert fsstart() called
+  XV6_ASSERT(vfs_sb->private != NULL);
   acquire(&icache.lock);
 
   // Is the inode already cached?
@@ -318,9 +318,7 @@ void fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
 
 // Must run from context of a process (uses sleep locks)
 void fsstart(struct vfs_superblock *vfs_sb) {
-  if (vfs_sb->private == 0) {
-    panic("fsstart: fsinit not called");
-  }
+  XV6_ASSERT(vfs_sb->private != NULL);
   struct native_superblock_private *sbp = sb_private(vfs_sb);
   struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
@@ -683,7 +681,6 @@ int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
 // PAGEBREAK!
 //  Paths
 struct vfs_inode *initprocessroot(struct mount **mnt) {
-  // TODO(AvivNaaman): Make it healthier
   struct mount *m = getinitialrootmount();
   if (mnt != NULL) {
     *mnt = m;
