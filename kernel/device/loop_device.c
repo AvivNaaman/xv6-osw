@@ -28,14 +28,41 @@ struct device* get_loop_device(const struct vfs_inode* const ip) {
 }
 
 struct device* create_loop_device(struct vfs_inode* const ip) {
-  struct device* dev = get_new_device(DEVICE_TYPE_LOOP);
+  acquire(&dev_holder.lock);
+  struct device* dev = _get_new_device(DEVICE_TYPE_LOOP);
 
   if (dev == NULL) {
-    return NULL;
+    goto end;
   }
 
   dev->private = ip->i_op->idup(ip);
   dev->ops = &loop_device_ops;
 
+end:
+  release(&dev_holder.lock);
   return dev;
+}
+
+struct vfs_inode* getinodefordevice(struct device* dev) {
+  if (dev->type != DEVICE_TYPE_LOOP) {
+    return 0;
+  }
+  if (dev->ref == 0) {
+    return 0;
+  }
+
+  return (struct vfs_inode*)dev->private;
+}
+
+int doesbackdevice(struct vfs_inode* ip) {
+  acquire(&dev_holder.lock);
+  for (int i = 0; i < NMAXDEVS; i++) {
+    if (dev_holder.devs[i].type == DEVICE_TYPE_LOOP &&
+        dev_holder.devs[i].private == ip) {
+      release(&dev_holder.lock);
+      return 1;
+    }
+  }
+  release(&dev_holder.lock);
+  return 0;
 }

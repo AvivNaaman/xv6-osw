@@ -16,10 +16,17 @@ struct device* get_ide_device(const uint ide_port) {
 }
 
 struct device* create_ide_device(const uint ide_port) {
-  struct device* dev = get_new_device(DEVICE_TYPE_IDE);
+  acquire(&dev_holder.lock);
+  struct device* dev = _get_new_device(DEVICE_TYPE_IDE);
+
+  if (dev == NULL) {
+    goto end;
+  }
 
   dev->private = (void*)ide_port;
   dev->ops = &default_device_ops;
 
+end:
+  release(&dev_holder.lock);
   return dev;
 }

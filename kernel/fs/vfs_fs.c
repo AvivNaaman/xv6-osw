@@ -169,12 +169,14 @@ struct vfs_superblock *sballoc() {
 }
 
 void sbdup(struct vfs_superblock *sb) {
+  XV6_ASSERT(sb->ref > 0);
   acquire(&sb->lock);
   sb->ref++;
   release(&sb->lock);
 }
 
 void sbput(struct vfs_superblock *sb) {
+  XV6_ASSERT(sb->ref > 0);
   acquire(&sb->lock);
   sb->ref--;
   release(&sb->lock);

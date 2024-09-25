@@ -7,7 +7,7 @@
 
 struct dev_holder_s dev_holder = {0};
 
-void devinit(void) {
+void devinit() {
   int i = 0;
   initlock(&dev_holder.lock, "dev_list");
   for (struct device* dev = dev_holder.devs; dev < &dev_holder.devs[NMAXDEVS];
@@ -34,7 +34,8 @@ static const int dev_to_max_count[] = {
     MAX_OBJ_DEVS_NUM,   // DEVICE_TYPE_OBJ
 };
 
-struct device* get_new_device(const enum device_type type) {
+// Must hold dev_holder.lock.
+struct device* _get_new_device(const enum device_type type) {
   struct device* dev = NULL;
 
   XV6_ASSERT(type < DEVICE_TYPE_MAX);
@@ -43,7 +44,6 @@ struct device* get_new_device(const enum device_type type) {
     return NULL;
   }
 
-  acquire(&dev_holder.lock);
   for (struct device* current_dev = dev_holder.devs;
        current_dev < &dev_holder.devs[NMAXDEVS]; current_dev++) {
     if (current_dev->ref == 0 && current_dev->type == DEVICE_TYPE_NONE) {
@@ -51,7 +51,6 @@ struct device* get_new_device(const enum device_type type) {
       break;
     }
   }
-  release(&dev_holder.lock);
   if (dev == NULL) {
     return NULL;
   }
@@ -98,28 +97,4 @@ void deviceput(struct device* const d) {
   }
   d->ref--;
   release(&dev_holder.lock);
-}
-
-struct vfs_inode* getinodefordevice(struct device* dev) {
-  if (dev->type != DEVICE_TYPE_LOOP) {
-    return 0;
-  }
-  if (dev->ref == 0) {
-    return 0;
-  }
-
-  return (struct vfs_inode*)dev->private;
-}
-
-int doesbackdevice(struct vfs_inode* ip) {
-  acquire(&dev_holder.lock);
-  for (int i = 0; i < NMAXDEVS; i++) {
-    if (dev_holder.devs[i].type == DEVICE_TYPE_LOOP &&
-        dev_holder.devs[i].private == ip) {
-      release(&dev_holder.lock);
-      return 1;
-    }
-  }
-  release(&dev_holder.lock);
-  return 0;
 }

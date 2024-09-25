@@ -24,18 +24,19 @@
 #include "types.h"
 #include "vfs_fs.h"
 
-int obj_dirlink(struct vfs_inode *, char *, uint);
-struct vfs_inode *obj_dirlookup(struct vfs_inode *, char *, uint *);
-struct vfs_inode *obj_idup(struct vfs_inode *);
-void obj_ilock(struct vfs_inode *);
-void obj_iput(struct vfs_inode *);
-void obj_iunlock(struct vfs_inode *);
-void obj_iunlockput(struct vfs_inode *);
-void obj_iupdate(struct vfs_inode *);
-int obj_readi(struct vfs_inode *, uint, uint, vector *);
-void obj_stati(struct vfs_inode *, struct stat *);
-int obj_writei(struct vfs_inode *, char *, uint, uint);
-int obj_isdirempty(struct vfs_inode *);
+static int obj_dirlink(struct vfs_inode *, char *, uint);
+static struct vfs_inode *obj_dirlookup(struct vfs_inode *, char *, uint *);
+static struct vfs_inode *obj_idup(struct vfs_inode *);
+static void obj_ilock(struct vfs_inode *);
+static void obj_iput(struct vfs_inode *);
+static void obj_iunlock(struct vfs_inode *);
+static void obj_iunlockput(struct vfs_inode *);
+static void obj_iupdate(struct vfs_inode *);
+static int obj_readi(struct vfs_inode *, uint, uint, vector *);
+static void obj_stati(struct vfs_inode *, struct stat *);
+static int obj_writei(struct vfs_inode *, char *, uint, uint);
+static int obj_isdirempty(struct vfs_inode *);
+static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum);
 
 struct {
   struct spinlock lock;
@@ -71,14 +72,12 @@ void obj_mkfs() {
   init_obj_fs();
   init_objects_cache();
 }
-static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
-                                           bool ref_device);
 
 // PAGEBREAK!
 //  Allocate an object and its corresponding inode object to the device object
 //  table. Returns an unlocked but allocated and referenced inode.
-static struct vfs_inode *obj_ialloc_internal(struct vfs_superblock *vfs_sb,
-                                             file_type type, bool ref_device) {
+static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
+                                             file_type type) {
   int inum = new_inode_number();
   char iname[INODE_NAME_LENGTH];
   struct obj_dinode di = {0};
@@ -98,14 +97,9 @@ static struct vfs_inode *obj_ialloc_internal(struct vfs_superblock *vfs_sb,
     panic("obj_ialloc: failed adding object to disk");
   }
 
-  ip = obj_iget_internal(vfs_sb, inum, ref_device);
+  ip = obj_iget(vfs_sb, inum);
 
   return ip;
-}
-
-static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
-                                    file_type type) {
-  return obj_ialloc_internal(vfs_sb, type, true);
 }
 
 // Copy a modified in-memory inode to disk.
@@ -151,8 +145,7 @@ static const struct inode_operations obj_inode_ops = {
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
-                                           bool ref_device) {
+static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
   struct obj_inode *ip, *empty;
 
   acquire(&obj_icache.lock);
@@ -182,10 +175,8 @@ static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
   ip->data_object_name[0] = 0;
   file_name(ip->data_object_name, inum);
 
-  struct device *dev = sb_private(sb);
-  if (ref_device) {
-    deviceget(dev);
-  }
+  struct device *const dev = sb_private(sb);
+  deviceget(dev);
 
   /* Initiate inode operations for obj fs */
   ip->vfs_inode.i_op = &obj_inode_ops;
@@ -195,15 +186,12 @@ static struct vfs_inode *obj_iget_internal(struct vfs_superblock *sb, uint inum,
   return &ip->vfs_inode;
 }
 
-static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
-  return obj_iget_internal(sb, inum, true);
-}
 
-void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device);
+void obj_iput(struct vfs_inode *vfs_ip);
 
 static void obj_fsdestroy(struct vfs_superblock *vfs_sb) {
   struct vfs_inode *root_ip = vfs_sb->root_ip;
-  obj_iput_internal(root_ip, true);
+  obj_iput(root_ip);
   vfs_sb->root_ip = NULL;
   vfs_sb->ops = NULL;
 }
@@ -213,7 +201,7 @@ static const struct sb_ops obj_ops = {.alloc_inode = obj_ialloc,
                                       .destroy = obj_fsdestroy,
                                       .start = NULL};
 
-void obj_fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
+void obj_fsinit(struct vfs_superblock *const vfs_sb, struct device * const dev) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
@@ -228,7 +216,7 @@ void obj_fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
   vfs_sb->private = dev;
 
   /* Initiate root dir */
-  root_inode = obj_ialloc_internal(vfs_sb, T_DIR, true);
+  root_inode = obj_ialloc(vfs_sb, T_DIR);
 
   /* Initiate inode for root dir */
   strncpy(de.name, ".", DIRSIZ);
@@ -246,7 +234,7 @@ void obj_fsinit(struct vfs_superblock *vfs_sb, struct device *dev) {
     panic("Couldn't create root dir in obj fs");
   }
 
-  vfs_sb->root_ip = root_inode->i_op->idup(root_inode);
+  vfs_sb->root_ip = root_inode;
 
   /* For tries, TODO: need to move this logic to obj mkfs (and create one) */
   //    ip = obj_ialloc(dev, T_FILE);
@@ -330,7 +318,7 @@ void obj_iunlock(struct vfs_inode *ip) {
 // to it, free the inode (and its content) on disk.
 // All calls to iput() must be inside a transaction in
 // case it has to free the inode.
-void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device) {
+void obj_iput(struct vfs_inode *vfs_ip) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
 
   acquiresleep(&ip->vfs_inode.lock);
@@ -349,14 +337,12 @@ void obj_iput_internal(struct vfs_inode *vfs_ip, bool ref_device) {
   acquire(&obj_icache.lock);
 
   ip->vfs_inode.ref--;
-  if (ip->vfs_inode.ref == 0 && ref_device) {
-    struct device *dev = sb_private(ip->vfs_inode.sb);
+  if (ip->vfs_inode.ref == 0) {
+    struct device *const dev = sb_private(ip->vfs_inode.sb);
     deviceput(dev);
   }
   release(&obj_icache.lock);
 }
-
-void obj_iput(struct vfs_inode *ip) { obj_iput_internal(ip, true); }
 
 // Common idiom: unlock, then put.
 void obj_iunlockput(struct vfs_inode *ip) {
@@ -371,7 +357,7 @@ void obj_iunlockput(struct vfs_inode *ip) {
 // Caller must hold ip->lock.
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
-  struct device *dev = sb_private(ip->vfs_inode.sb);
+  const struct device * const dev = sb_private(ip->vfs_inode.sb);
   st->dev = dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;

@@ -23,7 +23,6 @@
 #include "defs.h"
 #include "device/device.h"
 #include "fs.h"
-#include "fs/native_file.h"
 #include "fs/vfs_file.h"
 #include "kvector.h"
 #include "param.h"
@@ -110,17 +109,17 @@ static struct buf *bget(struct device *dev, uint blockno) {
   panic("bget: no buffers");
 }
 
-void devicerw(struct inode *device, struct buf *b) {
+void devicerw(struct vfs_inode *const source_node, struct buf *b) {
   if ((b->flags & B_DIRTY) == 0) {
     vector read_result_vector;
     read_result_vector = newvector(BSIZE, 1);
-    device->vfs_inode.i_op->readi(&device->vfs_inode, BSIZE * b->blockno, BSIZE,
+    source_node->i_op->readi(source_node, BSIZE * b->blockno, BSIZE,
                                   &read_result_vector);
     memmove_from_vector((char *)b->data, read_result_vector, 0, BSIZE);
     // vectormemcmp("devicerw", read_result_vector, 0, (char *) b->data, BSIZE);
     freevector(&read_result_vector);
   } else {
-    device->vfs_inode.i_op->writei(&device->vfs_inode, (char *)b->data,
+    source_node->i_op->writei(source_node, (char *)b->data,
                                    BSIZE * b->blockno, BSIZE);
   }
   b->flags |= B_VALID;
@@ -131,10 +130,7 @@ void brw(struct buf *b) {
   struct vfs_inode *inode_of_loop_dev;
   // Support for loop devices
   if ((inode_of_loop_dev = getinodefordevice(b->dev)) != 0) {
-    struct inode *i_device =
-        container_of(inode_of_loop_dev, struct inode, vfs_inode);
-
-    devicerw(i_device, b);
+    devicerw(inode_of_loop_dev, b);
   } else {
     iderw(b);
   }

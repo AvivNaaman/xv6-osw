@@ -43,6 +43,6 @@ extern struct dev_holder_s dev_holder;
 
 extern const struct device_ops default_device_ops;
 
-struct device* get_new_device(enum device_type type);
+struct device* _get_new_device(enum device_type type);
 
 #endif /* XV6_DEVICE_H */

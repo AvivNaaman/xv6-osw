@@ -9,15 +9,14 @@
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
 
-#include "fs.h"
-
 #include "buf.h"
 #include "defs.h"
 #include "device/device.h"
-#include "native_file.h"
+#include "fs.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
+#include "native_file.h"
 #include "param.h"
 #include "proc.h"
 #include "sleeplock.h"
@@ -30,14 +29,14 @@ int dirlink(struct vfs_inode *, char *, uint);
 struct vfs_inode *dirlookup(struct vfs_inode *, char *, uint *);
 struct vfs_inode *idup(struct vfs_inode *);
 void ilock(struct vfs_inode *);
-void iput(struct vfs_inode *);
-void iunlock(struct vfs_inode *);
-void iunlockput(struct vfs_inode *);
-void iupdate(struct vfs_inode *);
-int readi(struct vfs_inode *, uint, uint, vector *);
-void stati(struct vfs_inode *, struct stat *);
-int writei(struct vfs_inode *, char *, uint, uint);
-int isdirempty(struct vfs_inode *);
+static void iput(struct vfs_inode *);
+static void iunlock(struct vfs_inode *);
+static void iunlockput(struct vfs_inode *);
+static void iupdate(struct vfs_inode *);
+static int readi(struct vfs_inode *, uint, uint, vector *);
+static void stati(struct vfs_inode *, struct stat *);
+static int writei(struct vfs_inode *, char *, uint, uint);
+static int isdirempty(struct vfs_inode *);
 
 static void itrunc(struct vfs_inode *ip);
 
@@ -241,8 +240,7 @@ static const struct inode_operations native_inode_ops = {
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
 // the inode and does not read it from disk.
-static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
-                                       bool ref_device) {
+static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
   struct inode *ip, *empty;
   XV6_ASSERT(vfs_sb->private != NULL);
   acquire(&icache.lock);
@@ -268,10 +266,9 @@ static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
     panic("iget: no inodes");
   }
 
-  if (ref_device) {
     struct native_superblock_private *sbp = sb_private(vfs_sb);
     deviceget(sbp->dev);
-  }
+
   ip = empty;
   ip->vfs_inode.sb = vfs_sb;
   ip->vfs_inode.inum = inum;
@@ -285,15 +282,10 @@ static struct vfs_inode *iget_internal(struct vfs_superblock *vfs_sb, uint inum,
   return &ip->vfs_inode;
 }
 
-static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
-  return iget_internal(vfs_sb, inum, true);
-}
-
-static void iput_internal(struct vfs_inode *ip, bool ref_device);
 
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
   struct native_superblock_private *sbp = sb_private(vfs_sb);
-  iput_internal(vfs_sb->root_ip, true);
+  iput(vfs_sb->root_ip);
   kfree((char *)sbp);
 }
 
@@ -322,7 +314,7 @@ void fsstart(struct vfs_superblock *vfs_sb) {
   struct native_superblock_private *sbp = sb_private(vfs_sb);
   struct native_superblock *sb = &sbp->sb;
   readsb(vfs_sb, sb);
-  vfs_sb->root_ip = iget_internal(vfs_sb, ROOTINO, true);
+  vfs_sb->root_ip = iget(vfs_sb, ROOTINO);
   if (sbp->dev->type != DEVICE_TYPE_LOOP) {
     initlog(vfs_sb);
   }
@@ -405,7 +397,7 @@ void iunlock(struct vfs_inode *ip) {
 // to it, free the inode (and its content) on disk.
 // All calls to iput() must be inside a transaction in
 // case it has to free the inode.
-static void iput_internal(struct vfs_inode *ip, bool ref_device) {
+static void iput(struct vfs_inode *ip) {
   acquiresleep(&ip->lock);
   if (ip->valid && ip->nlink == 0) {
     acquire(&icache.lock);
@@ -425,13 +417,11 @@ static void iput_internal(struct vfs_inode *ip, bool ref_device) {
   ip->ref--;
   release(&icache.lock);
 
-  if (ip->ref == 0 && ref_device) {
+  if (ip->ref == 0) {
     struct native_superblock_private *sbp = sb_private(ip->sb);
     deviceput(sbp->dev);
   }
 }
-
-void iput(struct vfs_inode *ip) { iput_internal(ip, true); }
 
 // Common idiom: unlock, then put.
 void iunlockput(struct vfs_inode *ip) {
