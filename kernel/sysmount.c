@@ -6,7 +6,7 @@
 
 #include "cgroup.h"
 #include "defs.h"
-#include "file.h"
+#include "device/devices.h"
 #include "fs.h"
 #include "mmu.h"
 #include "mount.h"
@@ -100,7 +100,7 @@ int handle_objfs_mounts() {
 
   mount_dir->i_op->ilock(mount_dir);
 
-  struct device *objdev = getorcreateobjdevice();
+  struct device *objdev = create_obj_device();
   if (objdev == NULL) {
     cprintf("failed to create ObjFS device\n");
     mount_dir->i_op->iunlockput(mount_dir);
@@ -288,7 +288,11 @@ int handle_nativefs_mounts() {
     goto exit;
   }
 
-  struct device *loop_dev = getorcreatedevice(loop_inode);
+  struct device *loop_dev = get_loop_device(loop_inode);
+  if (loop_dev == NULL) {
+    loop_dev = create_loop_device(loop_inode);
+  }
+
   if (loop_dev == NULL) {
     loop_inode->i_op->iunlockput(loop_inode);
     mount_dir->i_op->iunlockput(mount_dir);

@@ -2,7 +2,7 @@
 #define XV6_VFS_FILE_H
 
 #include "defs.h"
-#include "device.h"
+#include "device/device.h"
 #include "kvector.h"
 #include "param.h"
 #include "sleeplock.h"

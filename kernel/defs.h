@@ -51,9 +51,6 @@ void tty_detach(struct vfs_inode* ip);
 int tty_gets(struct vfs_inode* ip, int command);
 
 // device.c
-struct device* getorcreatedevice(struct vfs_inode*);
-struct device* getorcreateobjdevice();
-struct device* getorcreateidedevice(uint ide_port);
 void deviceput(struct device*);
 void deviceget(struct device*);
 struct vfs_inode* getinodefordevice(struct device*);

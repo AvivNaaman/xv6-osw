@@ -1,8 +1,8 @@
 #ifndef XV6_OBJ_DISK_H
 #define XV6_OBJ_DISK_H
 
+#include "fs/obj_fs.h"
 #include "kvector.h"
-#include "obj_fs.h"
 #include "types.h"
 
 /**

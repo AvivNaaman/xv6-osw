@@ -1,7 +1,7 @@
 #include "obj_cache.h"
 
 #include "defs.h"  // import `panic`
-#include "obj_disk.h"
+#include "device/obj_disk.h"
 #include "sleeplock.h"
 
 // the default cache has 32 objects of 8KB each for total of 256KB.

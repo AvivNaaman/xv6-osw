@@ -2,7 +2,6 @@
 #define XV6_DEVICE_H
 
 #include "fs.h"
-#include "obj_fs.h"
 #include "spinlock.h"
 
 #define MAX_LOOP_DEVS_NUM (10)
@@ -41,5 +40,9 @@ struct dev_holder_s {
 };
 
 extern struct dev_holder_s dev_holder;
+
+extern const struct device_ops default_device_ops;
+
+struct device* get_new_device(enum device_type type);
 
 #endif /* XV6_DEVICE_H */

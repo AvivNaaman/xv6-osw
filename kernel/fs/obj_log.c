@@ -1,9 +1,9 @@
 #include "obj_log.h"
 
 #include "defs.h"  // import `panic`
+#include "device/obj_disk.h"
 #include "kvector.h"
 #include "obj_cache.h"
-#include "obj_disk.h"
 #include "obj_fs.h"
 #include "sleeplock.h"
 

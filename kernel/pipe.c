@@ -1,5 +1,4 @@
 #include "defs.h"
-#include "file.h"
 #include "fs.h"
 #include "mmu.h"
 #include "param.h"

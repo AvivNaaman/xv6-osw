@@ -1,12 +1,13 @@
 #include "defs.h"
+#include "device/devices.h"
+#include "device/obj_disk.h"
+#include "fs/obj_cache.h"
+#include "fs/vfs_file.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "obj_cache.h"
-#include "obj_disk.h"
 #include "param.h"
 #include "proc.h"
 #include "types.h"
-#include "vfs_file.h"
 #include "x86.h"
 
 static void objfsinit(void);
@@ -49,11 +50,11 @@ int main(void) {
   binit();         // buffer cache
   vfs_fileinit();  // file table
   devinit();       // initialize devices
-  mntinit();       // initialize mounts
   ideinit();       // disk
-  if (getorcreateidedevice(ROOTDEV) == NULL)
+  if (create_ide_device(ROOTDEV) == NULL)
     panic("Failed to mount /!");  // mount root file system
   objfsinit();                    // objfs disk
+  mntinit();                      // initialize mounts
 
   startothers();                               // start other processors
   kinit2(P2V(4 * 1024 * 1024), P2V(PHYSTOP));  // must come after startothers()

@@ -1,7 +1,7 @@
 #include "procfs.h"
 
 #include "defs.h"
-#include "device.h"
+#include "device/device.h"
 #include "fcntl.h"
 #include "fs.h"
 #include "mount_ns.h"

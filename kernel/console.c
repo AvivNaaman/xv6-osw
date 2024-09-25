@@ -6,8 +6,8 @@
 
 #include "defs.h"
 #include "fcntl.h"
-#include "file.h"
 #include "fs.h"
+#include "fs/vfs_file.h"
 #include "kvector.h"
 #include "memlayout.h"
 #include "mmu.h"
@@ -17,7 +17,6 @@
 #include "sleeplock.h"
 #include "traps.h"
 #include "types.h"
-#include "vfs_file.h"
 #include "x86.h"
 
 static ushort *crt = (ushort *)P2V(0xb8000);  // CGA memory

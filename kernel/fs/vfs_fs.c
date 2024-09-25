@@ -1,5 +1,5 @@
 // #include "defs.h"
-#include "device.h"
+#include "device/device.h"
 #include "fs.h"
 #include "mount.h"
 #include "obj_fs.h"

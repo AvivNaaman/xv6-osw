@@ -13,8 +13,8 @@
 
 #include "buf.h"
 #include "defs.h"
-#include "device.h"
-#include "file.h"
+#include "device/device.h"
+#include "native_file.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"

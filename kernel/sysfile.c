@@ -6,9 +6,8 @@
 
 #include "cgroup.h"
 #include "defs.h"
-#include "device.h"
+#include "device/device.h"
 #include "fcntl.h"
-#include "file.h"
 #include "fs.h"
 #include "kvector.h"
 #include "mmu.h"

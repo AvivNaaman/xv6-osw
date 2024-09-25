@@ -1,7 +1,7 @@
 #include "buf.h"
 #include "cgroup.h"
 #include "defs.h"
-#include "device.h"
+#include "device/device.h"
 #include "fs.h"
 #include "param.h"
 #include "proc.h"

@@ -1,5 +1,5 @@
 #include "defs.h"
-#include "file.h"
+#include "device/devices.h"
 #include "fs.h"
 #include "mmu.h"
 #include "mount.h"
@@ -71,8 +71,8 @@ struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
-  if (addmountinternal(&mount_holder.mnt_list[0], getorcreateidedevice(ROOTDEV),
-                       NULL, NULL, NULL, get_root_mount_ns())) {
+  if (addmountinternal(&mount_holder.mnt_list[0], get_ide_device(ROOTDEV), NULL,
+                       NULL, NULL, get_root_mount_ns())) {
     panic("failed to initialize root mount");
   }  // fs start later in init
   mount_holder.mnt_list[0].mnt.ref = 1;

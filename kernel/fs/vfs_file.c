@@ -5,8 +5,7 @@
 #include "vfs_file.h"
 
 #include "defs.h"
-#include "device.h"
-#include "file.h"
+#include "device/device.h"
 #include "fs.h"
 #include "mount.h"
 #include "param.h"

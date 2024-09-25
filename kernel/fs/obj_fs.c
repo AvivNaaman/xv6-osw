@@ -7,14 +7,13 @@
 
 #include "buf.h"
 #include "defs.h"
-#include "device.h"
-#include "file.h"
+#include "device/device.h"
+#include "device/obj_disk.h"  // for error codes and `new_inode_number`
 #include "fs.h"
 #include "kvector.h"
 #include "mmu.h"
 #include "mount.h"
 #include "obj_cache.h"
-#include "obj_disk.h"  // for error codes and `new_inode_number`
 #include "obj_file.h"
 #include "obj_log.h"
 #include "param.h"
