@@ -1,8 +1,7 @@
 // Simple PIO-based (non-DMA) IDE driver code.
+#include "ide.h"
 
-#include "buf.h"
 #include "defs.h"
-#include "fs.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "param.h"
@@ -75,13 +74,14 @@ static void idestart(struct buf *b) {
 
   if (sector_per_block > 7) panic("idestart");
 
+  uint ide_port_id = (uint)b->dev->private;
   idewait(0);
   outb(0x3f6, 0);                 // generate interrupt
   outb(0x1f2, sector_per_block);  // number of sectors
   outb(0x1f3, sector & 0xff);
   outb(0x1f4, (sector >> 8) & 0xff);
   outb(0x1f5, (sector >> 16) & 0xff);
-  outb(0x1f6, 0xe0 | ((b->dev & 1) << 4) | ((sector >> 24) & 0x0f));
+  outb(0x1f6, 0xe0 | ((ide_port_id & 1) << 4) | ((sector >> 24) & 0x0f));
   if (b->flags & B_DIRTY) {
     outb(0x1f7, write_cmd);
     outsl(0x1f0, b->data, BSIZE / 4);
