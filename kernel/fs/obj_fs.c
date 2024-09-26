@@ -77,7 +77,7 @@ void obj_mkfs() {
 //  Allocate an object and its corresponding inode object to the device object
 //  table. Returns an unlocked but allocated and referenced inode.
 static struct vfs_inode *obj_ialloc(struct vfs_superblock *vfs_sb,
-                                             file_type type) {
+                                    file_type type) {
   int inum = new_inode_number();
   char iname[INODE_NAME_LENGTH];
   struct obj_dinode di = {0};
@@ -186,7 +186,6 @@ static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
   return &ip->vfs_inode;
 }
 
-
 void obj_iput(struct vfs_inode *vfs_ip);
 
 static void obj_fsdestroy(struct vfs_superblock *vfs_sb) {
@@ -201,7 +200,7 @@ static const struct sb_ops obj_ops = {.alloc_inode = obj_ialloc,
                                       .destroy = obj_fsdestroy,
                                       .start = NULL};
 
-void obj_fsinit(struct vfs_superblock *const vfs_sb, struct device * const dev) {
+void obj_fsinit(struct vfs_superblock *const vfs_sb, struct device *const dev) {
   struct vfs_inode *root_inode;
   struct dirent de;
   uint off = 0;
@@ -357,7 +356,7 @@ void obj_iunlockput(struct vfs_inode *ip) {
 // Caller must hold ip->lock.
 void obj_stati(struct vfs_inode *vfs_ip, struct stat *st) {
   struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
-  const struct device * const dev = sb_private(ip->vfs_inode.sb);
+  const struct device *const dev = sb_private(ip->vfs_inode.sb);
   st->dev = dev->id;
   st->ino = ip->vfs_inode.inum;
   st->type = ip->vfs_inode.type;

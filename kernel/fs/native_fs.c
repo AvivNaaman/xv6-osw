@@ -266,8 +266,8 @@ static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
     panic("iget: no inodes");
   }
 
-    struct native_superblock_private *sbp = sb_private(vfs_sb);
-    deviceget(sbp->dev);
+  struct native_superblock_private *sbp = sb_private(vfs_sb);
+  deviceget(sbp->dev);
 
   ip = empty;
   ip->vfs_inode.sb = vfs_sb;
@@ -281,7 +281,6 @@ static struct vfs_inode *iget(struct vfs_superblock *vfs_sb, uint inum) {
   release(&icache.lock);
   return &ip->vfs_inode;
 }
-
 
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
   struct native_superblock_private *sbp = sb_private(vfs_sb);

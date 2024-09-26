@@ -114,13 +114,13 @@ void devicerw(struct vfs_inode *const source_node, struct buf *b) {
     vector read_result_vector;
     read_result_vector = newvector(BSIZE, 1);
     source_node->i_op->readi(source_node, BSIZE * b->blockno, BSIZE,
-                                  &read_result_vector);
+                             &read_result_vector);
     memmove_from_vector((char *)b->data, read_result_vector, 0, BSIZE);
     // vectormemcmp("devicerw", read_result_vector, 0, (char *) b->data, BSIZE);
     freevector(&read_result_vector);
   } else {
-    source_node->i_op->writei(source_node, (char *)b->data,
-                                   BSIZE * b->blockno, BSIZE);
+    source_node->i_op->writei(source_node, (char *)b->data, BSIZE * b->blockno,
+                              BSIZE);
   }
   b->flags |= B_VALID;
   b->flags &= ~B_DIRTY;
