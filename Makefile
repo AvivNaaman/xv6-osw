@@ -78,7 +78,7 @@ tests/xv6/%:
 
 # Docker build & skopeo copy, create OCI images.
 # Docker daemon must be running and available from this context.
-images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile
+images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile 
 	docker build -t xv6_internal_fs_$* -f images/build/img_internal_fs_$*.Dockerfile images/build
 	mkdir -p images/img_internal_fs_$*
 	docker run --rm --mount type=bind,source="$(CURDIR)",target=/home/$(shell whoami)/xv6 \

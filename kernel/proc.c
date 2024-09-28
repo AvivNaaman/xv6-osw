@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "mount.h"
+#include "mount_ns.h"
 #include "namespace.h"
 #include "param.h"
 #include "pid_ns.h"
@@ -13,7 +14,6 @@
 #include "types.h"
 #include "wstatus.h"
 #include "x86.h"
-#include "mount_ns.h"
 
 struct {
   struct spinlock lock;
@@ -161,8 +161,8 @@ void userinit(void) {
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->nsproxy = initnsproxy();
 
-  struct mount* root_mount = getroot(p->nsproxy->mount_ns->active_mounts);
-  struct vfs_inode* root_ip = get_mount_root_ip(root_mount);
+  struct mount *root_mount = getroot(p->nsproxy->mount_ns->active_mounts);
+  struct vfs_inode *root_ip = get_mount_root_ip(root_mount);
   p->cwd = root_ip->i_op->idup(root_ip);
   safestrcpy(p->cwdp, "/", sizeof(p->cwdp));
   p->cwdmount = mntdup(root_mount);

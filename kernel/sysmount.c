@@ -318,3 +318,20 @@ exit:
 
   return res;
 }
+
+int sys_pivot_root(void) {
+  char *new_root = NULL;
+  char *put_old = NULL;
+
+  if (argstr(0, &new_root) < 0) {
+    cprintf("badargs - new root\n");
+    return 1;
+  }
+
+  if (argstr(1, &put_old) < 0) {
+    cprintf("badargs - old root\n");
+    return 1;
+  }
+
+  return pivot_root(new_root, put_old);
+}
