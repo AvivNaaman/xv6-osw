@@ -14,6 +14,8 @@ static int pivot_root(char* const new_root, char* const put_old) {
   struct mount* put_old_root_mount = NULL;
 
   int status = PIVOT_FAILURE;
+  // check that new_root is a mount point.
+  // check that put_old should be a dir under new_root.
 
   new_root_inode = vfs_nameimount(new_root, &new_root_mount);
   if (new_root_inode == NULL) {
@@ -22,7 +24,7 @@ static int pivot_root(char* const new_root, char* const put_old) {
   }
 
   if (new_root_inode->type != T_DIR) {
-    cprintf("new root mount path is not a dir\n");
+    cprintf("new root mount path is not a mountpoint\n");
     goto end;
   }
 

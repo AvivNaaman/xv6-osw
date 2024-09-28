@@ -13,6 +13,7 @@
 #include "types.h"
 #include "wstatus.h"
 #include "x86.h"
+#include "mount_ns.h"
 
 struct {
   struct spinlock lock;
@@ -158,9 +159,13 @@ void userinit(void) {
   p->tf->eip = 0;  // beginning of initcode.S
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
-  p->cwd = initprocessroot(&p->cwdmount);
+  p->nsproxy = initnsproxy();
+
+  struct mount* root_mount = getroot(p->nsproxy->mount_ns->active_mounts);
+  struct vfs_inode* root_ip = get_mount_root_ip(root_mount);
+  p->cwd = root_ip->i_op->idup(root_ip);
   safestrcpy(p->cwdp, "/", sizeof(p->cwdp));
-  p->nsproxy = emptynsproxy();
+  p->cwdmount = mntdup(root_mount);
 
   p->ns_pid = pid_ns_next_pid(p->nsproxy->pid_ns);
 
@@ -635,7 +640,9 @@ void forkret(void) {
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
     first = 0;
-    struct vfs_superblock *sb = getinitialrootmount()->sb;
+    struct mount *m = getrootmount();
+    XV6_ASSERT(!m->isbind);
+    struct vfs_superblock *sb = m->sb;
     if (sb->ops->start) {
       sb->ops->start(sb);
     }

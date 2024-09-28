@@ -27,6 +27,28 @@ struct mount_list *getactivemounts(struct mount_ns *ns) {
   return ns->active_mounts;
 }
 
+
+static struct mount_list *allocmntlist(void) {
+  acquire(&mount_holder.mnt_list_lock);
+  int i;
+  // Find empty mount struct
+  for (i = 0; i < NMOUNT && mount_holder.mnt_list[i].mnt.ref != 0; i++) {
+  }
+
+  if (i == NMOUNT) {
+    // error - no available mount memory.
+    panic("out of mount_list objects");
+  }
+
+  struct mount_list *newmountentry = &mount_holder.mnt_list[i];
+  newmountentry->mnt.ref = 1;
+
+  release(&mount_holder.mnt_list_lock);
+
+  return newmountentry;
+}
+
+
 // Parent mount (if it exists) must already be ref-incremented.
 static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
                             struct vfs_inode *mountpoint, struct mount *parent,
@@ -64,22 +86,6 @@ static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
   return 0;
 }
 
-struct mount *getinitialrootmount(void) {
-  return &mount_holder.mnt_list[0].mnt;
-}
-
-struct vfs_inode *initprocessroot(struct mount **mnt) {
-  struct mount *m = getinitialrootmount();
-  if (mnt != NULL) {
-    *mnt = m;
-  }
-  // This is called during first process creation (in kernel mode, no context)
-  // but fsinit is called in first usermode process context (kernel mode).
-  // this causes *sb to be uninitialized and causes a banic once calling iget!
-  struct vfs_inode *inode = m->sb->ops->iget(m->sb, ROOTINO);
-  return inode;
-}
-
 struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 
 struct mount *setrootmount(struct mount *new_root) {
@@ -87,9 +93,11 @@ struct mount *setrootmount(struct mount *new_root) {
 
   struct mount *old_root = getrootmount();
   old_root->parent = new_root;
+  myproc()->nsproxy->mount_ns->root = new_root;
+  new_root->ref++;
 
   if (new_root->parent != NULL) {
-    mntput(new_root->parent);
+    new_root->parent->ref--;
     new_root->parent = NULL;
   }
 
@@ -100,12 +108,15 @@ struct mount *setrootmount(struct mount *new_root) {
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 
-  if (addmountinternal(&mount_holder.mnt_list[0], get_ide_device(ROOTDEV), NULL,
+  struct mount_list *root_mount = allocmntlist();
+
+  if (addmountinternal(root_mount, get_ide_device(ROOTDEV), NULL,
                        NULL, NULL, get_root_mount_ns())) {
     panic("failed to initialize root mount");
   }  // fs start later in init
-  mount_holder.mnt_list[0].mnt.ref = 1;
-  get_root_mount_ns()->root = getinitialrootmount();
+
+  // allocate root mount
+  get_root_mount_ns()->root = &root_mount->mnt;
 }
 
 struct mount *mntdup(struct mount *mnt) {
@@ -119,26 +130,6 @@ void mntput(struct mount *mnt) {
   acquire(&mount_holder.mnt_list_lock);
   mnt->ref--;
   release(&mount_holder.mnt_list_lock);
-}
-
-static struct mount_list *allocmntlist(void) {
-  acquire(&mount_holder.mnt_list_lock);
-  int i;
-  // Find empty mount struct
-  for (i = 0; i < NMOUNT && mount_holder.mnt_list[i].mnt.ref != 0; i++) {
-  }
-
-  if (i == NMOUNT) {
-    // error - no available mount memory.
-    panic("out of mount_list objects");
-  }
-
-  struct mount_list *newmountentry = &mount_holder.mnt_list[i];
-  newmountentry->mnt.ref = 1;
-
-  release(&mount_holder.mnt_list_lock);
-
-  return newmountentry;
 }
 
 // mountpoint and bind_dir must be locked.
@@ -390,4 +381,17 @@ struct mount *getroot(struct mount_list *newentry) {
   }
 
   return 0;
+}
+
+// get the root inode of the provided mount, and increment its ref count
+struct vfs_inode* get_mount_root_ip(struct mount* m) {
+  struct vfs_inode* next;
+  if (m->isbind) {
+    XV6_ASSERT(m->bind != 0);
+    next = m->bind;
+  } else {
+    XV6_ASSERT(m->sb != 0);
+    next = m->sb->root_ip;
+  }
+  return next->i_op->idup(next);
 }
