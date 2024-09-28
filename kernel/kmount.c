@@ -404,38 +404,13 @@ struct vfs_inode *get_mount_root_ip(struct mount *m) {
   return next->i_op->idup(next);
 }
 
-int pivot_root(char *const new_root, char *const put_old) {
-  struct vfs_inode *new_root_inode = NULL;
-  struct vfs_inode *put_old_root_inode = NULL;
-  struct mount *new_root_mount = NULL;
-  struct mount *put_old_root_mount = NULL;
-
+int pivot_root(struct vfs_inode *new_root_inode, struct mount *new_root_mount, struct vfs_inode *put_old_root_inode, struct mount *put_old_root_mount) {
   int status = -1;
-  // check that new_root is a mount point.
-  // check that put_old should be a dir under new_root.
-
-  new_root_inode = vfs_nameimount(new_root, &new_root_mount);
-  if (new_root_inode == NULL) {
-    cprintf("Failed to get new root dir inode\n");
-    goto end;
-  }
-
-  if (new_root_inode->type != T_DIR) {
-    cprintf("new root mount path is not a mountpoint\n");
-    goto end;
-  }
-
-  put_old_root_inode = vfs_nameimount(put_old, &put_old_root_mount);
-  if (put_old_root_inode == NULL) {
-    cprintf("Failed to get old root dir inode\n");
-    goto end;
-  }
-
-  if (put_old_root_inode->type != T_DIR) {
-    cprintf("old root mount path is not a dir\n");
-    goto end;
-  }
-  // TODO(???) lock this entire function!!
+  // TODO(???): check that new_root is a mount point.
+  // TODO(???): check that put_old should be a dir under new_root.
+  // TODO(???): lock this entire function!!
+  // TODO(???): Define behavior when there are other processes with the old root mounted (prevent umount? update cwdmount?).
+  //
 
   struct mount *oldroot = setrootmount(new_root_mount);
   if (oldroot == NULL) {
@@ -444,23 +419,11 @@ int pivot_root(char *const new_root, char *const put_old) {
   }
 
   // now, mount oldroot to put_old. Avoid dereferencing new mountpoint
-  oldroot->mountpoint = put_old_root_inode;
-  put_old_root_inode = NULL;
+  oldroot->mountpoint = put_old_root_inode; // TODO(???): missing lock on mounts table!!!!!!!!
+  put_old_root_inode->i_op->idup(put_old_root_inode);
 
   status = 0;
 
 end:
-  if (new_root_inode != NULL) {
-    new_root_inode->i_op->iput(new_root_inode);
-  }
-  if (put_old_root_inode != NULL) {
-    put_old_root_inode->i_op->iput(put_old_root_inode);
-  }
-  if (new_root_mount != NULL) {
-    mntput(new_root_mount);
-  }
-  if (put_old_root_mount != NULL) {
-    mntput(put_old_root_mount);
-  }
   return status;
 }

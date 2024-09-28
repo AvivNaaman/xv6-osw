@@ -517,9 +517,6 @@ pouch_status pouch_container_start(const char* container_name,
         goto child_error;
       }
 
-      // TODO(??) Remove this when the image has an entrypoint
-      // Copy sh into the new image root
-
       if (pivot_root(image_mount_point, old_root_mount_point) < 0) {
         printf(stderr, "Pouch: failed to pivot root to %s!\n",
                image_mount_point);
@@ -534,10 +531,22 @@ pouch_status pouch_container_start(const char* container_name,
         goto child_error;
       }
 
-      // TODO(??) Remove old root mount directory from new image space
+      // Unmount the old root mount point -- we're already chdir'd to the new root!
+      if (umount(old_root_relative_path) < 0) {
+        printf(stderr, "Pouch: failed to umount old root mount dir at %s!\n",
+               old_root_relative_path);
+        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+        goto child_error;
+      }
+      if (unlink(old_root_relative_path) < 0) {
+        printf(stderr, "Pouch: failed to unlink old root mount dir at %s!\n",
+               old_root_mount_point);
+        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+        goto child_error;
+      }
 
       // Child was created, now we can release the global lock!
-      // TODO(??) Call the actual entrypoint in the new image
+      // TODO(??) Call an actual entrypoint in the new image
       mutex_unlock(&global_mutex);
       printf(stderr, "Entering container\n");
       exec(container_exec_path, start_container_argv);
@@ -632,7 +641,7 @@ pouch_status pouch_container_stop(const char* const container_name) {
 
   prepare_image_mount_path(container_name, mnt_point);
   // umount not needed as the container is already destroyed,
-  // and mount lives only inside the container.
+  // and mount lives only inside the container. TODO(???) Is this still needed after pivot root?
   if (unlink(mnt_point) < 0) {
     return -1;
   }

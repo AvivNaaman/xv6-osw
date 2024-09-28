@@ -322,6 +322,11 @@ exit:
 int sys_pivot_root(void) {
   char *new_root = NULL;
   char *put_old = NULL;
+  struct vfs_inode *new_root_inode = NULL;
+  struct vfs_inode *put_old_root_inode = NULL;
+  struct mount *new_root_mount = NULL;
+  struct mount *put_old_root_mount = NULL;
+  int res = -1;
 
   if (argstr(0, &new_root) < 0) {
     cprintf("badargs - new root\n");
@@ -333,5 +338,42 @@ int sys_pivot_root(void) {
     return 1;
   }
 
-  return pivot_root(new_root, put_old);
+  new_root_inode = vfs_nameimount(new_root, &new_root_mount);
+  if (new_root_inode == NULL) {
+    cprintf("Failed to get new root dir inode\n");
+    goto end;
+  }
+
+  if (new_root_inode->type != T_DIR) {
+    cprintf("new root mount path is not a mountpoint\n");
+    goto end;
+  }
+
+  put_old_root_inode = vfs_nameimount(put_old, &put_old_root_mount);
+  if (put_old_root_inode == NULL) {
+    cprintf("Failed to get old root dir inode\n");
+    goto end;
+  }
+
+  if (put_old_root_inode->type != T_DIR) {
+    cprintf("old root mount path is not a dir\n");
+    goto end;
+  }
+
+  res = pivot_root(new_root_inode, new_root_mount, put_old_root_inode, put_old_root_mount);
+
+end:
+  if (new_root_inode != NULL) {
+    new_root_inode->i_op->iput(new_root_inode);
+  }
+  if (put_old_root_inode != NULL) {
+    put_old_root_inode->i_op->iput(put_old_root_inode);
+  }
+  if (new_root_mount != NULL) {
+    mntput(new_root_mount);
+  }
+  if (put_old_root_mount != NULL) {
+    mntput(put_old_root_mount);
+  }
+  return res;
 }
