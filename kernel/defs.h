@@ -91,7 +91,7 @@ void umountall(struct mount_list*);
 struct mount_list* copyactivemounts(void);
 struct mount* getroot(struct mount_list*);
 struct vfs_inode* get_mount_root_ip(struct mount*);
-int pivot_root(char *const, char *const);
+int pivot_root(char* const, char* const);
 
 // ioapic.c
 void ioapicenable(int irq, int cpu);

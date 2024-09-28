@@ -55,12 +55,12 @@ fi
 
 # Check the first argument to determine what to do
 if [ "$1" == "test" ]; then
+    DOCKER_RUN_CMDLINE="run --mount type=bind,source="$(pwd)",target=/home/$(whoami)/xv6 --rm --privileged "
+    docker ${DOCKER_RUN_CMDLINE} $IMAGE_NAME /home/$(whoami)/xv6/scripts/build-user.sh
     #### Generate OCI images locally
     make build-oci
     # Run tests, dind required for building test oci images!
-    docker run --mount type=bind,source="$(pwd)",target=/home/$(whoami)/xv6 \
-                --rm --privileged  $IMAGE_NAME \
-                /home/$(whoami)/xv6/run-ci.sh
+    docker ${DOCKER_RUN_CMDLINE} $IMAGE_NAME /home/$(whoami)/xv6/scripts/run-ci.sh
 elif [ "$1" == "interactive" ]; then
     # Run interactive command
     if [ -z "$3" ]; then
