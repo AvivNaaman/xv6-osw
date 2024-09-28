@@ -82,6 +82,21 @@ struct vfs_inode *initprocessroot(struct mount **mnt) {
 
 struct mount *getrootmount(void) { return myproc()->nsproxy->mount_ns->root; }
 
+struct mount *setrootmount(struct mount *new_root) {
+  acquire(&mount_holder.mnt_list_lock);
+
+  struct mount *old_root = getrootmount();
+  old_root->parent = new_root;
+
+  if (new_root->parent != NULL) {
+    mntput(new_root->parent);
+    new_root->parent = NULL;
+  }
+
+  release(&mount_holder.mnt_list_lock);
+  return old_root;
+}
+
 void mntinit(void) {
   initlock(&mount_holder.mnt_list_lock, "mount_list");
 

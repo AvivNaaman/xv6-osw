@@ -44,6 +44,7 @@ int kmemtest(void);
 int mount(const char*, const char*, const char*);
 int umount(const char*);
 int unshare(int);
+int pivot_root(const char*, const char*);
 
 // ulib.c
 int stat(const char*, struct stat*);

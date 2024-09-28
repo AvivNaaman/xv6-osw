@@ -83,6 +83,7 @@ void mntinit(void);
 int mount(struct vfs_inode*, struct device*, struct vfs_inode*, struct mount*);
 int umount(struct mount*);
 struct mount* getrootmount(void);
+struct mount* setrootmount(struct mount*);
 struct mount* mntdup(struct mount*);
 void mntput(struct mount*);
 struct mount* mntlookup(struct vfs_inode*, struct mount*);

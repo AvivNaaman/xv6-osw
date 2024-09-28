@@ -13,6 +13,7 @@
 #define IMAGE_MOUNT_DIR "/mnt/"
 static const char* container_exec_path = "../../sh";
 static const char* start_container_argv[] = {"sh", 0};
+static const char old_root_relative_path[] = "/.old_root";
 
 bool pouch_container_is_attached() { return getppid() == 1; }
 
@@ -301,6 +302,28 @@ static pouch_status prepare_image_mount_path(const char* const container_name,
 }
 
 /*
+ *   Prepare old root mount path: used when calling pivot_root to prepare a dir
+ * for put_old argument
+ *   @input: container_name
+ *   @output: image_mount_point
+ */
+static pouch_status prepare_old_root_mount_path(const char* const base_dir,
+                                                char* const old_root_path) {
+  struct stat mnt_base_path;
+  if (stat(base_dir, &mnt_base_path) < 0) {
+    perror("Old root base dir doesn't exists");
+    return FAILED_TO_CREATE_OLD_ROOT_DIR;
+  }
+  if (strlen(base_dir) + strlen(old_root_relative_path) > MAX_PATH_LENGTH) {
+    perror("Old root path is tol long");
+    return FAILED_TO_CREATE_OLD_ROOT_DIR;
+  }
+  strcpy(old_root_path, base_dir);
+  strcat(old_root_path, old_root_relative_path);
+  return SUCCESS_CODE;
+}
+
+/*
  *   Finding a tty:
  *   - Finds a free tty to be attached
  *   @input: none
@@ -338,6 +361,7 @@ pouch_status pouch_container_start(const char* container_name,
   char tty_name[10];
   char cg_cname[MAX_PATH_LENGTH];
   char image_mount_point[MAX_PATH_LENGTH];
+  char old_root_mount_point[MAX_PATH_LENGTH];
   char image_path[MAX_PATH_LENGTH];
   int daemonize = 1;
   mutex_t parent_mutex, global_mutex;
@@ -479,17 +503,41 @@ pouch_status pouch_container_start(const char* container_name,
         goto child_error;
       }
 
-      // TODO(Future): implement a pivot_root syscall and call it to the image
-      // directory, so / filesystem is actually our image inside the started
-      // container.
-      if (chdir(image_mount_point) < 0) {
+      if (prepare_old_root_mount_path(image_mount_point, old_root_mount_point) <
+          0) {
+        printf(stderr, "Pouch: failed to prepare old root mount dir at %s!\n",
+               image_mount_point);
+        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+      }
+
+      if (mkdir(old_root_mount_point) < 0) {
+        printf(stderr, "Pouch: failed to create  old root mount dir at %s!\n",
+               old_root_mount_point);
+        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+        goto child_error;
+      }
+
+      // TODO(??) Remove this when the image has an entrypoint
+      // Copy sh into the new image root
+
+      if (pivot_root(image_mount_point, old_root_mount_point) < 0) {
+        printf(stderr, "Pouch: failed to pivot root to %s!\n",
+               image_mount_point);
+        child_status = FAILED_TO_PIVOT_ROOT;
+        goto child_error;
+      }
+
+      if (chdir("/") < 0) {
         printf(stderr, "Pouch: failed to change directory to %s!\n",
                image_mount_point);
         child_status = IMAGE_MOUNT_FAILED_ERROR_CODE;
         goto child_error;
       }
 
+      // TODO(??) Remove old root mount directory from new image space
+
       // Child was created, now we can release the global lock!
+      // TODO(??) Call the actual entrypoint in the new image
       mutex_unlock(&global_mutex);
       printf(stderr, "Entering container\n");
       exec(container_exec_path, start_container_argv);
