@@ -580,7 +580,7 @@ static struct vfs_inode *dirlookup(struct vfs_inode *vfs_dp, char *name,
       if (poff) *poff = off;
       inum = de.inum;
       freevector(&direntryvec);
-      return dp->vfs_inode.sb->ops->iget(dp->vfs_inode.sb, inum);
+      return iget(dp->vfs_inode.sb, inum);
     }
   }
   freevector(&direntryvec);
@@ -588,7 +588,7 @@ static struct vfs_inode *dirlookup(struct vfs_inode *vfs_dp, char *name,
 }
 
 // Write a new directory entry (name, inum) into the directory dp.
-static int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
+static int dirlink(struct vfs_inode *vfs_dp, char *name, struct vfs_inode* vfs_ip) {
   int off;
   struct dirent de;
   struct vfs_inode *ip;
@@ -612,7 +612,7 @@ static int dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
   }
 
   strncpy(de.name, name, DIRSIZ);
-  de.inum = inum;
+  de.inum = vfs_ip->inum;
   if (writei(&dp->vfs_inode, (char *)&de, off, sizeof(de)) !=
       sizeof(de))  // TODO(unknown): write from vector
     panic("dirlink");
@@ -652,7 +652,7 @@ static void fsdestroy(struct vfs_superblock *vfs_sb) {
 }
 
 static const struct sb_ops native_ops = {
-    .ialloc = ialloc, .iget = iget, .destroy = fsdestroy, .start = fsstart};
+    .ialloc = ialloc, .destroy = fsdestroy, .start = fsstart};
 
 static const struct inode_operations native_inode_ops = {
     .idup = &idup,

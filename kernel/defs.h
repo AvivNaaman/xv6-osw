@@ -30,6 +30,7 @@ struct devsw;
 struct dev_stat;
 struct cgroup_io_device_statistics_s;
 enum file_type;
+enum fstype;
 
 // console.c
 void consoleclear(void);
@@ -61,26 +62,19 @@ int vfs_filestat(struct vfs_file*, struct stat*);
 int vfs_filewrite(struct vfs_file*, char*, int n);
 
 // vfs_fs.c
-struct vfs_inode* vfs_namei(char*);
-struct vfs_inode* vfs_nameimount(char*, struct mount**);
-struct vfs_inode* vfs_nameiparent(char*, char*);
-struct vfs_inode* vfs_nameiparentmount(char*, char*, struct mount**);
+struct vfs_inode* vfs_namei(const char*);
+struct vfs_inode* vfs_nameimount(const char*, struct mount**);
+struct vfs_inode* vfs_nameiparent(const char*, char*);
+struct vfs_inode* vfs_nameiparentmount(const char*, char*, struct mount**);
 int vfs_namecmp(const char*, const char*);
 int vfs_namencmp(const char* s, const char* t, int length);
 struct vfs_superblock* sballoc();
 void sbdup(struct vfs_superblock* sb);
 void sbput(struct vfs_superblock* sb);
 
-// sysmount.c
-int handle_objfs_mounts();
-int handle_cgroup_mounts();
-int handle_proc_mounts();
-int handle_bind_mounts();
-int handle_nativefs_mounts();
-
 // kmount.c
 void mntinit(void);
-int mount(struct vfs_inode*, struct device*, struct vfs_inode*, struct mount*);
+int mount(struct vfs_inode*, struct device*, struct vfs_inode*, struct mount*, enum fstype, const char*);
 int umount(struct mount*);
 struct mount* getrootmount(void);
 struct mount* setrootmount(struct mount*);

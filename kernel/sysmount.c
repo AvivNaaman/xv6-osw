@@ -17,31 +17,176 @@
 #include "spinlock.h"
 #include "stat.h"
 #include "types.h"
+#include "fs/fs.h"
 
+static int handle_objfs_mounts(struct vfs_inode *mount_dir, struct mount *parent) {
+  int res = -1;
+
+  struct device *objdev = create_obj_device();
+  if (objdev == NULL) {
+    goto end;
+  }
+
+  res = mount(mount_dir, objdev, NULL, parent, OBJ_FS, NULL);
+  deviceput(objdev);
+
+end:
+  return res;
+}
+
+static int handle_cgroup_mounts(struct vfs_inode *mount_dir, struct mount *parent, char* mount_path) {
+  if (*(cgroup_root()->cgroup_dir_path)) {
+    cprintf("cgroup filesystem already mounted\n");
+    return -1;
+  }
+
+  set_cgroup_dir_path(cgroup_root(), mount_path);
+
+
+  return 0;
+}
+
+static int handle_proc_mounts(struct vfs_inode *mount_dir, struct mount *parent, char* mount_path) {
+  if (*procfs_root) {
+    cprintf("proc filesystem already mounted\n");
+    return -1;
+  }
+
+  set_procfs_dir_path(mount_path);
+
+  return 0;
+}
+
+static int handle_bind_mounts(struct vfs_inode *mount_dir, struct mount *parent, char* bind_path) {
+  int res = -1;
+  struct vfs_inode *bind_to_dir = NULL;
+
+  if ((bind_to_dir = vfs_namei(bind_path)) == 0) {
+    cprintf("bad bind mount path\n");
+    goto end;
+  }
+
+  res = mount(mount_dir, NULL, bind_to_dir, parent, NONE_FS, NULL);
+
+end:
+  if (bind_to_dir) {
+    bind_to_dir->i_op->iput(bind_to_dir);
+  }
+  return res;
+}
+
+static int handle_nativefs_mounts(struct vfs_inode *mount_dir, struct mount *parent, const char* const device_path) {
+  struct vfs_inode *loop_inode = NULL;
+  struct device *loop_dev = NULL;
+  int res = -1;
+
+  if ((loop_inode = vfs_namei(device_path)) == 0) {
+    cprintf("bad device_path\n");
+    goto exit;
+  }
+
+  loop_inode->i_op->ilock(loop_inode);
+
+  // find or create struct device* for loop device
+  loop_dev = get_loop_device(loop_inode);
+  if (loop_dev == NULL) {
+    loop_dev = create_loop_device(loop_inode);
+    if (loop_dev == NULL) {
+      goto exit_unlock;
+    }
+  }
+
+  res = mount(mount_dir, loop_dev, NULL, parent, NATIVE_FS, NULL);
+
+exit_unlock:
+  loop_inode->i_op->iunlockput(loop_inode);
+  loop_inode = NULL;
+
+exit:
+  if (loop_inode) {
+    loop_inode->i_op->iput(loop_inode);
+  }
+  if (loop_dev) {
+    deviceput(loop_dev);
+  }
+  return res;
+}
+
+static int handle_unionfs_mounts(struct vfs_inode *mount_dir, struct mount *parent, const char* const options) {
+  return mount(mount_dir, NULL, NULL, parent, UNION_FS, options);
+}
+
+
+// mount(options, dest_path, fstype)
 int sys_mount(void) {
-  char *fstype;
+  char *options, *dest_path, *fstype;
+  struct vfs_inode *dest_path_node = NULL;
+  struct mount *parent = NULL;
+  int res = -1;
 
-  if (argstr(2, &fstype) < 0) {
+  if (argstr(2, &fstype) < 0 || argstr(1, &dest_path) < 0 ||
+      argstr(0, &options) < 0) {
     cprintf("badargs\n");
     return -1;
   }
 
+  begin_op();
+  // get dest path node & parent mount
+  if ((dest_path_node = vfs_nameimount(dest_path, &parent)) == 0) {
+    cprintf("bad mount dest directory\n");
+    goto fail;
+  }
+  // make sure it is not / and it is a directory
+  if (dest_path_node->type != T_DIR) {
+    cprintf("mount dest not a directory\n");
+    goto fail;
+  }
+  if (dest_path_node->inum == ROOTINO) {
+    cprintf("Can't mount root directory\n");
+    goto fail;
+  }
+
+  dest_path_node->i_op->ilock(dest_path_node);
+
   // Mount objfs file system
   if (strcmp(fstype, "objfs") == 0) {
-    return handle_objfs_mounts();
+    res = handle_objfs_mounts(dest_path_node, parent);
   } else if (strcmp(fstype, "cgroup") == 0) {
-    return handle_cgroup_mounts();
+    res = handle_cgroup_mounts(dest_path_node, parent, dest_path);
   } else if (strcmp(fstype, "proc") == 0) {
-    return handle_proc_mounts();
+    res = handle_proc_mounts(dest_path_node, parent, dest_path);
   } else if (strcmp(fstype, "bind") == 0) {
-    return handle_bind_mounts();
+    res = handle_bind_mounts(dest_path_node, parent, options);
+  } else if (strcmp(fstype, "union") == 0) {
+    res = handle_unionfs_mounts(dest_path_node, parent, options);
   } else {
-    return handle_nativefs_mounts();
+    res = handle_nativefs_mounts(dest_path_node, parent, options);
+  } 
+
+  // If mount failed, decrease ref.
+  if (res != 0) {
+    dest_path_node->i_op->iunlockput(dest_path_node);
+  } else {
+    dest_path_node->i_op->iunlock(dest_path_node);
   }
+  dest_path_node = NULL;
+
+fail:
+  if (dest_path_node) {
+    dest_path_node->i_op->iput(dest_path_node);
+  }
+  if (parent) {
+    mntput(parent);
+  }
+  end_op();
+  return res;
 }
+
 
 int sys_umount(void) {
   char *mount_path;
+  int res = -1;
+
   if (argstr(0, &mount_path) < 0) {
     cprintf("badargs\n");
     return -1;
@@ -49,283 +194,45 @@ int sys_umount(void) {
 
   begin_op();
 
+  // Try to umount() cgroup.
   int delete_cgroup_res = cgroup_delete(mount_path, "umount");
+  if (delete_cgroup_res == RESULT_SUCCESS) {
+    res = 0;
+    goto end;
+  }
+  else if (delete_cgroup_res != RESULT_ERROR_ARGUMENT) {
+    cprintf("cannot unmount cgroup\n");
+    goto end;
+  }
 
-  if (delete_cgroup_res == RESULT_ERROR_ARGUMENT) {
-    struct vfs_inode *mount_dir;
-    struct mount *mnt;
 
-    if ((mount_dir = vfs_nameimount(mount_path, &mnt)) == 0) {
-      end_op();
-      return -1;
-    }
+  // not cgroup, try to umount() as a regular filesystem.
+  struct vfs_inode *mount_dir = NULL;
+  struct mount *mnt;
 
-    // Make sure we are umounting a mountpoint, not just any dir.
+  if ((mount_dir = vfs_nameimount(mount_path, &mnt)) == 0) {
+    goto end;
+  }
+      // Make sure we are umounting a mountpoint, not just any dir.
     struct vfs_inode *mount_root_dir = get_mount_root_ip(mnt);
     if (mount_root_dir != mount_dir) {
       mount_root_dir->i_op->iput(mount_root_dir);
       cprintf("directory is not a mountpoint.\n");
-      end_op();
+x      end_op();
       return -1;
     }
 
     mount_root_dir->i_op->iput(mount_root_dir);
-    mount_dir->i_op->iput(mount_dir);
+  mount_dir->i_op->iput(mount_dir);
 
-    int res = umount(mnt);
-    if (res != 0) {
-      mntput(mnt);
-    }
-
-    end_op();
-    return res;
-  }
-
-  if (delete_cgroup_res == RESULT_ERROR_ARGUMENT) {
-    end_op();
-    cprintf("cannot unmount cgroup\n");
-    return -1;
-  }
-
-  end_op();
-  return delete_cgroup_res;
-}
-
-int handle_objfs_mounts() {
-  char *mount_path;
-  struct mount *parent;
-  struct vfs_inode *mount_dir;
-  int res = 0;
-
-  if (argstr(1, &mount_path) < 0) {
-    cprintf("badargs\n");
-    return -1;
-  }
-
-  begin_op();
-
-  if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    end_op();
-    return -1;
-  }
-
-  mount_dir->i_op->ilock(mount_dir);
-
-  struct device *objdev = create_obj_device();
-  if (objdev == NULL) {
-    cprintf("failed to create ObjFS device\n");
-    mount_dir->i_op->iunlockput(mount_dir);
-    res = -1;
-    goto end;
-  }
-
-  res = mount(mount_dir, objdev, NULL, parent);
-  mount_dir->i_op->iunlock(mount_dir);
+  res = umount(mnt);
   if (res != 0) {
-    mount_dir->i_op->iput(mount_dir);
+    mntput(mnt);
   }
-  deviceput(objdev);
+
 
 end:
-  mntput(parent);
   end_op();
-
-  return res;
-}
-
-int handle_cgroup_mounts() {
-  char *device_path;
-  char *mount_path;
-  struct mount *parent;
-  struct vfs_inode *mount_dir;
-  if (argstr(0, &device_path) < 0 || argstr(1, &mount_path) < 0 ||
-      device_path != 0) {
-    cprintf("badargs\n");
-    return -1;
-  }
-
-  begin_op();
-
-  if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    cprintf("bad mount_path\n");
-    end_op();
-    return -1;
-  }
-
-  if (*(cgroup_root()->cgroup_dir_path)) {
-    cprintf("cgroup filesystem already mounted\n");
-    end_op();
-    return -1;
-  }
-
-  set_cgroup_dir_path(cgroup_root(), mount_path);
-
-  end_op();
-
-  return 0;
-}
-
-int handle_proc_mounts() {
-  char *device_path;
-  char *mount_path;
-  struct mount *parent;
-  struct vfs_inode *mount_dir;
-  if (argstr(0, &device_path) < 0 || argstr(1, &mount_path) < 0 ||
-      device_path != 0) {
-    cprintf("badargs\n");
-    return -1;
-  }
-
-  begin_op();
-
-  if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    cprintf("bad mount_path\n");
-    end_op();
-    return -1;
-  }
-
-  if (*procfs_root) {
-    cprintf("proc filesystem already mounted\n");
-    end_op();
-    return -1;
-  }
-
-  set_procfs_dir_path(mount_path);
-
-  end_op();
-
-  return 0;
-}
-
-int handle_bind_mounts() {
-  char *bind_path;
-  char *mount_path;
-  struct mount *parent;
-  struct vfs_inode *mount_dir;
-  struct vfs_inode *target_mount_dir;
-  if (argstr(0, &bind_path) < 0 || argstr(1, &mount_path) < 0) {
-    cprintf("badargs\n");
-    return -1;
-  }
-
-  begin_op();
-
-  if ((target_mount_dir = vfs_namei(bind_path)) == 0) {
-    cprintf("bad bind mount path\n");
-    end_op();
-    return -1;
-  }
-
-  if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    cprintf("bad mount directory\n");
-    target_mount_dir->i_op->iput(target_mount_dir);
-    end_op();
-    return -1;
-  }
-
-  if (mount_dir->inum == ROOTINO) {
-    cprintf("Can't mount root directory\n");
-    mount_dir->i_op->iput(mount_dir);
-    target_mount_dir->i_op->iput(target_mount_dir);
-    mntput(parent);
-    end_op();
-    return -1;
-  }
-
-  mount_dir->i_op->ilock(mount_dir);
-
-  if (mount_dir->type != T_DIR) {
-    cprintf("mount point is not a directory\n");
-    mount_dir->i_op->iunlockput(mount_dir);
-    mount_dir->i_op->iput(mount_dir);
-    target_mount_dir->i_op->iput(target_mount_dir);
-    mntput(parent);
-    end_op();
-    return -1;
-  }
-
-  int res = mount(mount_dir, NULL, target_mount_dir, parent);
-
-  mount_dir->i_op->iunlock(mount_dir);
-
-  if (res != 0) {
-    mount_dir->i_op->iput(mount_dir);
-    target_mount_dir->i_op->iput(target_mount_dir);
-  }
-
-  mntput(parent);
-
-  end_op();
-
-  return 0;
-}
-int handle_nativefs_mounts() {
-  char *device_path;
-  char *mount_path;
-  struct mount *parent;
-  struct vfs_inode *loop_inode, *mount_dir;
-  int res = -1;
-  if (argstr(0, &device_path) < 0 || argstr(1, &mount_path) < 0) {
-    cprintf("badargs\n");
-    return -1;
-  }
-
-  begin_op();
-
-  if ((loop_inode = vfs_namei(device_path)) == 0) {
-    cprintf("bad device_path\n");
-    goto exit;
-  }
-
-  if ((mount_dir = vfs_nameimount(mount_path, &parent)) == 0) {
-    loop_inode->i_op->iput(loop_inode);
-    goto exit;
-  }
-
-  if (mount_dir->inum == ROOTINO) {
-    loop_inode->i_op->iput(loop_inode);
-    mount_dir->i_op->iput(mount_dir);
-    mntput(parent);
-    goto exit;
-  }
-
-  loop_inode->i_op->ilock(loop_inode);
-  mount_dir->i_op->ilock(mount_dir);
-
-  if (mount_dir->type != T_DIR) {
-    loop_inode->i_op->iunlockput(loop_inode);
-    mount_dir->i_op->iunlockput(mount_dir);
-    mntput(parent);
-    goto exit;
-  }
-
-  struct device *loop_dev = get_loop_device(loop_inode);
-  if (loop_dev == NULL) {
-    loop_dev = create_loop_device(loop_inode);
-  }
-
-  if (loop_dev == NULL) {
-    loop_inode->i_op->iunlockput(loop_inode);
-    mount_dir->i_op->iunlockput(mount_dir);
-    mntput(parent);
-    goto exit;
-  }
-
-  res = mount(mount_dir, loop_dev, NULL, parent);
-
-  mount_dir->i_op->iunlock(mount_dir);
-  if (res != 0) {
-    mount_dir->i_op->iput(mount_dir);
-  }
-
-  loop_inode->i_op->iunlockput(loop_inode);
-  deviceput(loop_dev);
-  mntput(parent);
-  res = 0;
-
-exit:
-  end_op();
-
   return res;
 }
 

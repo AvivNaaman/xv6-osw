@@ -58,7 +58,8 @@ OBJS = \
 	device/obj_device.o\
 	device/ide_device.o\
 	device/loop_device.o\
-	fs/fs.o
+	fs/fs.o\
+	fs/unionfs.o
 
 
 ALL= bootblock entryother initcode kernel.bin vectors.S

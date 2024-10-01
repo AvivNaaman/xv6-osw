@@ -50,6 +50,7 @@ UPROGS_TESTS=\
 	tests/xv6/_pidns_tests\
 	tests/xv6/_cgroupstests\
 	tests/xv6/_ioctltests\
+	tests/xv6/_unionfstests
 
 
 TEST_ASSETS=

@@ -57,59 +57,6 @@ void file_name(char *output, uint inum) {
   output[sizeof(uint) + 1] = 0;  // null terminator
 }
 
-// PAGEBREAK!
-//  Allocate an object and its corresponding inode object to the device object
-//  table. Returns an unlocked but allocated and referenced inode.
-static struct vfs_inode *obj_ialloc(struct vfs_superblock *sb, file_type type) {
-  struct device *const dev = sb_private(sb);
-  int inum = new_inode_number(dev);
-  char iname[INODE_NAME_LENGTH];
-  struct obj_dinode di = {0};
-  struct vfs_inode *ip;
-
-  di.base_dinode.type = type;
-  di.base_dinode.nlink = 0;
-  if (type == T_DEV) {
-    di.data_object_name[0] = 0;
-  } else {
-    file_name(di.data_object_name, inum);
-  }
-  inode_name(iname, inum);
-  if (obj_cache_add(dev, iname, &di, sizeof(di)) != NO_ERR) {
-    panic("obj_ialloc: failed adding inode to disk");
-  }
-
-  if (type != T_DEV) {
-    if (obj_cache_add(dev, di.data_object_name, 0, 0) != NO_ERR) {
-      panic("obj_ialloc: failed adding object to disk");
-    }
-  }
-
-  ip = obj_ops.iget(sb, inum);
-
-  return ip;
-}
-
-// Copy a modified in-memory inode to disk.
-// Must be called after every change to an ip->xxx field
-// that lives on disk, since i-node cache is write-through.
-// Caller must hold ip->lock.
-void obj_iupdate(struct vfs_inode *vfs_ip) {
-  struct obj_dinode di;
-  struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
-  struct device *const dev = vfs_ip->sb->private;
-  char iname[INODE_NAME_LENGTH];
-  inode_name(iname, ip->vfs_inode.inum);
-  di.base_dinode.type = ip->vfs_inode.type;
-  di.base_dinode.major = ip->vfs_inode.major;
-  di.base_dinode.minor = ip->vfs_inode.minor;
-  di.base_dinode.nlink = ip->vfs_inode.nlink;
-  memmove(di.data_object_name, ip->data_object_name, MAX_OBJECT_NAME_LENGTH);
-  if (obj_cache_write(dev, iname, (void *)&di, sizeof(di), 0, sizeof(di)) !=
-      NO_ERR) {
-    panic("obj_iupdate: failed writing dinode to the disk");
-  }
-}
 
 // Find the inode with number inum on device dev
 // and return the in-memory copy. Does not lock
@@ -154,6 +101,61 @@ static struct vfs_inode *obj_iget(struct vfs_superblock *sb, uint inum) {
 
   return &ip->vfs_inode;
 }
+
+// PAGEBREAK!
+//  Allocate an object and its corresponding inode object to the device object
+//  table. Returns an unlocked but allocated and referenced inode.
+static struct vfs_inode *obj_ialloc(struct vfs_superblock *sb, file_type type) {
+  struct device *const dev = sb_private(sb);
+  int inum = new_inode_number(dev);
+  char iname[INODE_NAME_LENGTH];
+  struct obj_dinode di = {0};
+  struct vfs_inode *ip;
+
+  di.base_dinode.type = type;
+  di.base_dinode.nlink = 0;
+  if (type == T_DEV) {
+    di.data_object_name[0] = 0;
+  } else {
+    file_name(di.data_object_name, inum);
+  }
+  inode_name(iname, inum);
+  if (obj_cache_add(dev, iname, &di, sizeof(di)) != NO_ERR) {
+    panic("obj_ialloc: failed adding inode to disk");
+  }
+
+  if (type != T_DEV) {
+    if (obj_cache_add(dev, di.data_object_name, 0, 0) != NO_ERR) {
+      panic("obj_ialloc: failed adding object to disk");
+    }
+  }
+
+  ip = obj_iget(sb, inum);
+
+  return ip;
+}
+
+// Copy a modified in-memory inode to disk.
+// Must be called after every change to an ip->xxx field
+// that lives on disk, since i-node cache is write-through.
+// Caller must hold ip->lock.
+void obj_iupdate(struct vfs_inode *vfs_ip) {
+  struct obj_dinode di;
+  struct obj_inode *ip = container_of(vfs_ip, struct obj_inode, vfs_inode);
+  struct device *const dev = vfs_ip->sb->private;
+  char iname[INODE_NAME_LENGTH];
+  inode_name(iname, ip->vfs_inode.inum);
+  di.base_dinode.type = ip->vfs_inode.type;
+  di.base_dinode.major = ip->vfs_inode.major;
+  di.base_dinode.minor = ip->vfs_inode.minor;
+  di.base_dinode.nlink = ip->vfs_inode.nlink;
+  memmove(di.data_object_name, ip->data_object_name, MAX_OBJECT_NAME_LENGTH);
+  if (obj_cache_write(dev, iname, (void *)&di, sizeof(di), 0, sizeof(di)) !=
+      NO_ERR) {
+    panic("obj_iupdate: failed writing dinode to the disk");
+  }
+}
+
 
 void obj_iput(struct vfs_inode *vfs_ip);
 
@@ -404,7 +406,7 @@ struct vfs_inode *obj_dirlookup(struct vfs_inode *vfs_dp, char *name,
       // entry matches path element
       if (poff) *poff = off;
       freevector(&direntryvec);
-      return dp->vfs_inode.sb->ops->iget(dp->vfs_inode.sb, de.inum);
+      return obj_iget(dp->vfs_inode.sb, de.inum);
     }
   }
   freevector(&direntryvec);
@@ -412,7 +414,7 @@ struct vfs_inode *obj_dirlookup(struct vfs_inode *vfs_dp, char *name,
 }
 
 // Write a new directory entry (name, inum) into the directory dp.
-int obj_dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
+int obj_dirlink(struct vfs_inode *vfs_dp, char *name, struct vfs_inode *vfs_ip) {
   int off;
   struct dirent de;
   struct vfs_inode *ip;
@@ -442,8 +444,8 @@ int obj_dirlink(struct vfs_inode *vfs_dp, char *name, uint inum) {
   }
 
   strncpy(de.name, name, DIRSIZ);
-  de.inum = inum;
-  inode_name(iname, inum);
+  de.inum = vfs_ip->inum;
+  inode_name(iname, vfs_ip->inum);
   memset(&di, 0, sizeof(di));
   vector div = newvector(sizeof(di), 1);
 
@@ -531,7 +533,6 @@ void obj_fs_init(struct vfs_superblock *vfs_sb, struct device *dev) {
 }
 
 static const struct sb_ops obj_ops = {.ialloc = obj_ialloc,
-                                      .iget = obj_iget,
                                       .destroy = obj_fsdestroy,
                                       .start = NULL};
 

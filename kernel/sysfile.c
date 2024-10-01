@@ -149,7 +149,7 @@ int sys_link(void) {
 
   if ((dp = vfs_nameiparent(new, name)) == 0) goto bad;
   dp->i_op->ilock(dp);
-  if (dp->sb != ip->sb || dp->i_op->dirlink(dp, name, ip->inum) < 0) {
+  if (dp->sb != ip->sb || dp->i_op->dirlink(dp, name, ip) < 0) {
     dp->i_op->iunlockput(dp);
     goto bad;
   }
@@ -240,14 +240,13 @@ bad:
 static struct vfs_inode *createmount(char *path, short type, short major,
                                      short minor, struct mount **mnt,
                                      int omode) {
-  uint off;
   struct vfs_inode *ip, *dp;
   char name[DIRSIZ];
 
   if ((dp = vfs_nameiparentmount(path, name, mnt)) == 0) return 0;
   dp->i_op->ilock(dp);
 
-  if ((ip = dp->i_op->dirlookup(dp, name, &off)) != 0) {
+  if ((ip = dp->i_op->dirlookup(dp, name, NULL)) != 0) {
     dp->i_op->iunlockput(dp);
     // The path has already been created
     if (omode & O_EXCL) {
@@ -273,12 +272,12 @@ static struct vfs_inode *createmount(char *path, short type, short major,
     dp->nlink++;        // for ".."
     dp->i_op->iupdate(dp);
     // No ip->nlink++ for ".": avoid cyclic ref count.
-    if (ip->i_op->dirlink(ip, ".", ip->inum) < 0 ||
-        ip->i_op->dirlink(ip, "..", dp->inum) < 0)
+    if (ip->i_op->dirlink(ip, ".", ip) < 0 ||
+        ip->i_op->dirlink(ip, "..", dp) < 0)
       panic("create dots");
   }
 
-  if (dp->i_op->dirlink(dp, name, ip->inum) < 0) panic("create: dirlink");
+  if (dp->i_op->dirlink(dp, name, ip) < 0) panic("create: dirlink");
 
   dp->i_op->iunlockput(dp);
 

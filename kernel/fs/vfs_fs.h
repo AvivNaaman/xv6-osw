@@ -10,7 +10,6 @@ struct vfs_superblock;
 
 struct sb_ops {
   struct vfs_inode *(*ialloc)(struct vfs_superblock *sb, file_type type);
-  struct vfs_inode *(*iget)(struct vfs_superblock *sb, uint inum);
   void (*start)(struct vfs_superblock *sb);
   void (*destroy)(struct vfs_superblock *sb);
 };

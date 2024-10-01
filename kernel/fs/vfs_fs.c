@@ -5,6 +5,8 @@
 #include "mount.h"
 #include "obj_fs.h"
 #include "proc.h"
+#include "namespace.h"
+#include "mount_ns.h"
 
 // Copy the next path element from path into name.
 // Return a pointer to the element following the copied one.
@@ -18,9 +20,9 @@
 //   skipelem("a", name) = "", setting name = "a"
 //   skipelem("", name) = skipelem("////", name) = 0
 //
-static char *vfs_skipelem(char *path, char *name) {
-  char *s;
-  int len;
+static const char *vfs_skipelem(const char * path, char * const name) {
+  const char *s = NULL;
+  int len = -1;
 
   while (*path == '/') path++;
   if (*path == 0) return 0;
@@ -41,7 +43,7 @@ static char *vfs_skipelem(char *path, char *name) {
 // If parent != 0, return the inode for the parent and copy the final
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
-static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
+static struct vfs_inode *vfs_namex(const char * path, int nameiparent, char * const name,
                                    struct mount **mnt) {
   struct vfs_inode *ip, *next;
   struct mount *curmount;
@@ -70,7 +72,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       return ip;
     }
 
-    if ((next = ip->i_op->dirlookup(ip, name, 0)) == 0) {
+    if ((next = ip->i_op->dirlookup(ip, name, NULL)) == 0) {
       ip->i_op->iunlockput(ip);
       mntput(curmount);
       return 0;
@@ -87,7 +89,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
         curmount->mountpoint->i_op->dirlookup != NULL) {
       nextmount = mntdup(curmount->parent);
       mntinum =
-          curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0)
+          curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", NULL)
               ->inum;
     } else {
       nextmount = mntlookup(next, curmount);
@@ -113,7 +115,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
   return ip;
 }
 
-struct vfs_inode *vfs_namei(char *path) {
+struct vfs_inode *vfs_namei(const char * const path) {
   char name[DIRSIZ];
   struct mount *mnt;
   struct vfs_inode *ip = vfs_namex(path, 0, name, &mnt);
@@ -125,7 +127,7 @@ struct vfs_inode *vfs_namei(char *path) {
   return ip;
 }
 
-struct vfs_inode *vfs_nameiparent(char *path, char *name) {
+struct vfs_inode *vfs_nameiparent(const char *const path, char * const name) {
   struct mount *mnt;
   struct vfs_inode *ip = vfs_namex(path, 1, name, &mnt);
   if (ip != 0) {
@@ -135,12 +137,12 @@ struct vfs_inode *vfs_nameiparent(char *path, char *name) {
   return ip;
 }
 
-struct vfs_inode *vfs_nameiparentmount(char *path, char *name,
-                                       struct mount **mnt) {
+struct vfs_inode *vfs_nameiparentmount(const char *const path, char *const name,
+                                       struct mount ** const mnt) {
   return vfs_namex(path, 1, name, mnt);
 }
 
-struct vfs_inode *vfs_nameimount(char *path, struct mount **mnt) {
+struct vfs_inode *vfs_nameimount(const char * const path, struct mount ** const mnt) {
   char name[DIRSIZ];
   return vfs_namex(path, 0, name, mnt);
 }

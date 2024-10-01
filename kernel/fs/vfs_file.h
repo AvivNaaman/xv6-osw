@@ -120,7 +120,7 @@ struct ftable_s {
 extern struct ftable_s ftable;
 
 struct inode_operations {
-  int (*dirlink)(struct vfs_inode *, char *, uint);
+  int (*dirlink)(struct vfs_inode *, char *, struct vfs_inode *);
   struct vfs_inode *(*dirlookup)(struct vfs_inode *, char *, uint *);
   struct vfs_inode *(*idup)(struct vfs_inode *);
   void (*ilock)(struct vfs_inode *);
