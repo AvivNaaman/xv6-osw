@@ -531,7 +531,8 @@ pouch_status pouch_container_start(const char* container_name,
         goto child_error;
       }
 
-      // Unmount the old root mount point -- we're already chdir'd to the new root!
+      // Unmount the old root mount point -- we're already chdir'd to the new
+      // root!
       if (umount(old_root_relative_path) < 0) {
         printf(stderr, "Pouch: failed to umount old root mount dir at %s!\n",
                old_root_relative_path);
@@ -641,7 +642,8 @@ pouch_status pouch_container_stop(const char* const container_name) {
 
   prepare_image_mount_path(container_name, mnt_point);
   // umount not needed as the container is already destroyed,
-  // and mount lives only inside the container. TODO(???) Is this still needed after pivot root?
+  // and mount lives only inside the container. TODO(???) Is this still needed
+  // after pivot root?
   if (unlink(mnt_point) < 0) {
     return -1;
   }

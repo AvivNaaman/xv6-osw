@@ -125,6 +125,7 @@ struct mount *mntdup(struct mount *mnt) {
 }
 
 void mntput(struct mount *mnt) {
+  XV6_ASSERT(mnt != NULL && mnt->ref > 0);
   acquire(&mount_holder.mnt_list_lock);
   mnt->ref--;
   release(&mount_holder.mnt_list_lock);
@@ -171,7 +172,6 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
     mntput(parent);
     return -1;
   }
-  mountpoint->mnt = newmount;
   release(&myproc()->nsproxy->mount_ns->lock);
   if (!newmount->isbind && newmount->sb->ops->start != NULL) {
     newmount->sb->ops->start(newmount->sb);
@@ -200,12 +200,13 @@ int umount(struct mount *mnt) {
 
   const bool is_root_mount = current->mnt.parent == NULL;
   // sanity -- root mount has no attached mountpoint.
-  XV6_ASSERT(!is_root_mount || current->mnt.mountpoint != NULL);
+  XV6_ASSERT(!is_root_mount || current->mnt.mountpoint == NULL);
 
   acquire(&mount_holder.mnt_list_lock);
 
   // Base ref is 1, +1 for the mount being acquired before entering this method.
   if (current->mnt.ref > 2) {
+    cprintf("current->mnt.refs=%d>1\n", current->mnt.ref - 1);
     // error - can't unmount as there are references.
     release(&mount_holder.mnt_list_lock);
     release(&myproc()->nsproxy->mount_ns->lock);
@@ -217,7 +218,6 @@ int umount(struct mount *mnt) {
   release(&myproc()->nsproxy->mount_ns->lock);
 
   struct vfs_inode *oldmountpoint = current->mnt.mountpoint;
-
   struct vfs_inode *oldbind = current->mnt.isbind ? current->mnt.bind : NULL;
   struct vfs_superblock *sb = !current->mnt.isbind ? current->mnt.sb : NULL;
 
@@ -236,9 +236,8 @@ int umount(struct mount *mnt) {
   }
 
   if (!is_root_mount) {
-    oldmountpoint->i_op->ilock(oldmountpoint);
-    oldmountpoint->mnt = NULL;
-    oldmountpoint->i_op->iunlockput(oldmountpoint);
+    XV6_ASSERT(oldmountpoint != NULL);
+    oldmountpoint->i_op->iput(oldmountpoint);
   }
 
   if (sb) {
@@ -404,12 +403,15 @@ struct vfs_inode *get_mount_root_ip(struct mount *m) {
   return next->i_op->idup(next);
 }
 
-int pivot_root(struct vfs_inode *new_root_inode, struct mount *new_root_mount, struct vfs_inode *put_old_root_inode, struct mount *put_old_root_mount) {
+int pivot_root(struct vfs_inode *new_root_inode, struct mount *new_root_mount,
+               struct vfs_inode *put_old_root_inode,
+               struct mount *put_old_root_mount) {
   int status = -1;
   // TODO(???): check that new_root is a mount point.
   // TODO(???): check that put_old should be a dir under new_root.
   // TODO(???): lock this entire function!!
-  // TODO(???): Define behavior when there are other processes with the old root mounted (prevent umount? update cwdmount?).
+  // TODO(???): Define behavior when there are other processes with the old root
+  // mounted (prevent umount? update cwdmount?).
   //
 
   struct mount *oldroot = setrootmount(new_root_mount);
@@ -419,7 +421,8 @@ int pivot_root(struct vfs_inode *new_root_inode, struct mount *new_root_mount, s
   }
 
   // now, mount oldroot to put_old. Avoid dereferencing new mountpoint
-  oldroot->mountpoint = put_old_root_inode; // TODO(???): missing lock on mounts table!!!!!!!!
+  oldroot->mountpoint =
+      put_old_root_inode;  // TODO(???): missing lock on mounts table!!!!!!!!
   put_old_root_inode->i_op->idup(put_old_root_inode);
 
   status = 0;
