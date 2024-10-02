@@ -99,6 +99,12 @@ struct mount *setrootmount(struct mount *new_root) {
     new_root->parent = NULL;
   }
 
+  if (new_root->mountpoint != NULL)
+  {
+    new_root->mountpoint->i_op->iput(new_root->mountpoint);
+    new_root->mountpoint = NULL;
+  }
+
   release(&mount_holder.mnt_list_lock);
   return old_root;
 }
