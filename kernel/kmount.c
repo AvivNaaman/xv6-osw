@@ -211,7 +211,8 @@ int umount(struct mount *mnt) {
 
   // Base ref is 1, +1 for the mount being acquired before entering this method.
   if (current->mnt.ref > 2) {
-    cprintf("current->mnt(%d).refs=%d>1\n", &current->mnt, current->mnt.ref - 1);
+    cprintf("current->mnt(%d).refs=%d>1\n", &current->mnt,
+            current->mnt.ref - 1);
     // error - can't unmount as there are references.
     release(&mount_holder.mnt_list_lock);
     release(&myproc()->nsproxy->mount_ns->lock);

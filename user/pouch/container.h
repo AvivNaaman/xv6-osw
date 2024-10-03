@@ -1,28 +1,24 @@
 #ifndef XV6_USER_POUCH_CONTAINER_H
 #define XV6_USER_POUCH_CONTAINER_H
 
+#include "param.h"
 #include "pouch.h"
 #include "types.h"
-#include "param.h"
 
 /*
  *   Container name maximum size
  */
 #define CNTNAMESIZE (100)
 
-enum container_mount_type {
-    IMAGE_ROOT_FS = 1,
-    BIND_MOUNT,
-    LIST_END
-};
+enum container_mount_type { IMAGE_ROOT_FS = 1, BIND_MOUNT, LIST_END };
 
 /**
  * Defines a mount to be used in a container.
  */
 struct container_mounts_def {
-    const char *src;
-    const char *dest;
-    enum container_mount_type type;
+  const char* src;
+  const char* dest;
+  enum container_mount_type type;
 };
 
 /**

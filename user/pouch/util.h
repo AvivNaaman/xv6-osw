@@ -1,6 +1,6 @@
 #ifndef USER_POUCH_UTIL_H
 #define USER_POUCH_UTIL_H
- 
+
 #include "pouch.h"
 
 /**
@@ -9,4 +9,4 @@
  */
 pouch_status mkdir_if_not_exist(const char* path);
 
-#endif // USER_POUCH_UTIL_H
+#endif  // USER_POUCH_UTIL_H

@@ -58,13 +58,17 @@ if [ "$1" == "test" ]; then
     DOCKER_RUN_CMDLINE="--mount type=bind,source="$(pwd)","
     DOCKER_RUN_CMDLINE+="target=/home/$(whoami)/xv6"
     DOCKER_RUN_CMDLINE+=" --rm --privileged"
+    # 1. Lint (static analysis) the code
+    docker run ${DOCKER_RUN_CMDLINE} $IMAGE_NAME \
+        /home/$(whoami)/xv6/scripts/lint.sh
+    # 2. Build user binaries
     docker run ${DOCKER_RUN_CMDLINE} $IMAGE_NAME \
         /home/$(whoami)/xv6/scripts/build-user.sh
-    #### Generate OCI images locally
+    # 3. Build container images
     make build-oci
-    # Run tests, dind required for building test oci images!
+    # 4. Build and run tests for xv6.
     docker run ${DOCKER_RUN_CMDLINE} $IMAGE_NAME \
-        /home/$(whoami)/xv6/scripts/run-ci.sh
+        /home/$(whoami)/xv6/scripts/build-test.sh
 elif [ "$1" == "interactive" ]; then
     # Run interactive command
     if [ -z "$3" ]; then

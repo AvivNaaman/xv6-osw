@@ -60,3 +60,8 @@ enum mutex_e mutex_lock(mutex_t *mutex_var);
  * @return MUTEX_SUCCESS if the mutex was unlocked, MUTEX_FAILURE otherwise.
  */
 enum mutex_e mutex_unlock(mutex_t *mutex_var);
+
+/**
+ * Wait on a mutex and unlocks it right away.
+ */
+enum mutex_e mutex_wait(mutex_t *mutex_var);

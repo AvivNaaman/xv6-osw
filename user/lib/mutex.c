@@ -104,3 +104,10 @@ enum mutex_e mutex_unlock(mutex_t *mutex_var) {
   }
   return MUTEX_SUCCESS;
 }
+
+/* Lock+Unlock */
+enum mutex_e mutex_wait(mutex_t *mutex_var) {
+  enum mutex_e res = mutex_lock(mutex_var);
+  if (res != MUTEX_SUCCESS) return res;
+  return mutex_unlock(mutex_var);
+}
