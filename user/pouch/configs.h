@@ -70,7 +70,7 @@ pouch_status pouch_cconf_write(const container_config* conf);
 
 /*
  * Delete the cconf file for the given container name.
-*/
+ */
 int pouch_cconf_unlink(const container_config* const conf);
 
 /*

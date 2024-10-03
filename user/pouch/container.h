@@ -3,11 +3,27 @@
 
 #include "pouch.h"
 #include "types.h"
+#include "param.h"
 
 /*
  *   Container name maximum size
  */
 #define CNTNAMESIZE (100)
+
+enum container_mount_type {
+    IMAGE_ROOT_FS = 1,
+    BIND_MOUNT,
+    LIST_END
+};
+
+/**
+ * Defines a mount to be used in a container.
+ */
+struct container_mounts_def {
+    const char *src;
+    const char *dest;
+    enum container_mount_type type;
+};
 
 /**
  * Returns true if the current process is running in a container.

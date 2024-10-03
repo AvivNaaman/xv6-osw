@@ -4,7 +4,7 @@
 #include "fcntl.h"
 #include "lib/user.h"
 #include "param.h"
-#include "stat.h"
+#include "util.h"
 
 /*
  * Get tty device name by tty number (index).
@@ -52,7 +52,8 @@ static void pouch_get_container_conf_name(const char* const container_name,
 /*
  * Open container configuration file by container name.
  */
-static int pouch_open_container_file(const char* const container_name, const int mode) {
+static int pouch_open_container_file(const char* const container_name,
+                                     const int mode) {
   char container_file[CNTNAMESIZE + sizeof(POUCH_CONFIGS_DIR)];
   pouch_get_container_conf_name(container_name, container_file);
   int fd = open(container_file, mode);
@@ -77,13 +78,10 @@ pouch_status pouch_pconf_init() {
   pouch_status status = SUCCESS_CODE;
 
   // Mkdir pouch common directory
-  struct stat st;
-  if (stat(POUCH_CONFIGS_DIR, &st) != 0) {
-    if (mkdir(POUCH_CONFIGS_DIR) != 0) {
-      printf(stderr, "cannot create %s directory\n", POUCH_CONFIGS_DIR);
-      status = ERROR_CODE;
-      goto end;
-    }
+  if (mkdir_if_not_exist(POUCH_CONFIGS_DIR) != SUCCESS_CODE) {
+    perror("Invalid pouch configs directory.");
+    status = ERROR_CODE;
+    goto end;
   }
 
   // Not including the console tty
@@ -197,7 +195,7 @@ end:
  * key should include the colon.
  */
 pouch_status read_key_str_line(const int fd, const char* const key,
-                                      char* const val, const int max_len) {
+                               char* const val, const int max_len) {
   char c;
 
   if (max_len <= 0) {
@@ -206,13 +204,15 @@ pouch_status read_key_str_line(const int fd, const char* const key,
 
   const char* keypos = key;
   // Match the key.
-  for(;*keypos != '\0' && read(fd, &c, 1) == 1 && c == *keypos; ++keypos);
+  for (; *keypos != '\0' && read(fd, &c, 1) == 1 && c == *keypos; ++keypos) {
+  };
   if (*keypos != '\0') {
     return ERROR_CODE;
   }
   c = -1;
   // Skip whitespace, not newline
-  while (read(fd, &c, 1) == 1 && isspace(c) && c != '\n');
+  while (read(fd, &c, 1) == 1 && isspace(c) && c != '\n') {
+  };
   if (c == -1) {
     perror("read failed");
     return ERROR_CODE;
@@ -220,8 +220,8 @@ pouch_status read_key_str_line(const int fd, const char* const key,
 
   // Read the value itself until reaching a newline
   char* dest_pos = val;
-  *(dest_pos++) = c; // first char is from previous loop.
-  for (; read(fd, (dest_pos++), 1) == 1 && *(dest_pos-1) != '\n';) {
+  *(dest_pos++) = c;  // first char is from previous loop.
+  for (; read(fd, (dest_pos++), 1) == 1 && *(dest_pos - 1) != '\n';) {
     if (dest_pos - val >= max_len) {
       perror("value too long");
       return ERROR_CODE;
@@ -229,7 +229,7 @@ pouch_status read_key_str_line(const int fd, const char* const key,
   }
 
   // newline reached.
-  *(dest_pos-1) = '\0';
+  *(dest_pos - 1) = '\0';
 
   return SUCCESS_CODE;
 }
@@ -239,7 +239,7 @@ pouch_status read_key_str_line(const int fd, const char* const key,
  * key should include the colon.
  */
 pouch_status read_key_int_line(const int fd, const char* const key,
-                                      int* const val) {
+                               int* const val) {
   char buf[10];
   if (read_key_str_line(fd, key, buf, sizeof(buf)) != SUCCESS_CODE) {
     return ERROR_CODE;
@@ -265,10 +265,13 @@ pouch_status pouch_cconf_read(const char* const container_name,
   }
 
   // parse tty num and pid:
-  if (read_key_int_line(cont_fd, CONFIG_KEY_TTYNUM, &conf->tty_num) != SUCCESS_CODE ||
+  if (read_key_int_line(cont_fd, CONFIG_KEY_TTYNUM, &conf->tty_num) !=
+          SUCCESS_CODE ||
       read_key_int_line(cont_fd, CONFIG_KEY_PPID, &conf->pid) != SUCCESS_CODE ||
-      read_key_str_line(cont_fd, CONFIG_KEY_NAME, conf->container_name, sizeof(conf->container_name)) != SUCCESS_CODE ||
-      read_key_str_line(cont_fd, CONFIG_KEY_IMAGE, conf->image_name, sizeof(conf->image_name)) != SUCCESS_CODE) {
+      read_key_str_line(cont_fd, CONFIG_KEY_NAME, conf->container_name,
+                        sizeof(conf->container_name)) != SUCCESS_CODE ||
+      read_key_str_line(cont_fd, CONFIG_KEY_IMAGE, conf->image_name,
+                        sizeof(conf->image_name)) != SUCCESS_CODE) {
     status = ERROR_CODE;
     goto end;
   }
@@ -299,7 +302,8 @@ pouch_status pouch_cconf_write(const container_config* conf) {
     return INVALID_CCONF_TO_WRITE_ERROR_CODE;
   }
 
-  int cont_fd = pouch_open_container_file(conf->container_name, O_CREATE | O_RDWR);
+  int cont_fd =
+      pouch_open_container_file(conf->container_name, O_CREATE | O_RDWR);
   if (cont_fd < 0) {
     printf(stderr, "cannot open %s\n", conf->container_name);
     return FAILED_TO_OPEN_CCONF_ERROR_CODE;

@@ -143,12 +143,18 @@ static void cgaputc(int c) {
   } else
     crt[pos++] = (c & 0xff) | 0x0700;  // black on white
 
-  if (pos < 0 || pos > (CONSOLE_VIEWABLE_NUM_OF_LINE + 1) * CONSOLE_LINE_LENGTH) panic("pos under/overflow");
+  if (pos < 0 || pos > (CONSOLE_VIEWABLE_NUM_OF_LINE + 1) * CONSOLE_LINE_LENGTH)
+    panic("pos under/overflow");
 
-  if ((pos / CONSOLE_LINE_LENGTH) >= CONSOLE_VIEWABLE_NUM_OF_LINE) {  // Scroll up.
-    memmove(crt, crt + CONSOLE_LINE_LENGTH, sizeof(crt[0]) * (CONSOLE_VIEWABLE_NUM_OF_LINE - 1) * CONSOLE_LINE_LENGTH);
+  if ((pos / CONSOLE_LINE_LENGTH) >=
+      CONSOLE_VIEWABLE_NUM_OF_LINE) {  // Scroll up.
+    memmove(crt, crt + CONSOLE_LINE_LENGTH,
+            sizeof(crt[0]) * (CONSOLE_VIEWABLE_NUM_OF_LINE - 1) *
+                CONSOLE_LINE_LENGTH);
     pos -= CONSOLE_LINE_LENGTH;
-    memset(crt + pos, 0, sizeof(crt[0]) * (CONSOLE_VIEWABLE_NUM_OF_LINE * CONSOLE_LINE_LENGTH - pos));
+    memset(crt + pos, 0,
+           sizeof(crt[0]) *
+               (CONSOLE_VIEWABLE_NUM_OF_LINE * CONSOLE_LINE_LENGTH - pos));
   }
 
   update_pos(pos);
@@ -156,7 +162,8 @@ static void cgaputc(int c) {
 
 void consoleclear(void) {
   int pos = 0;
-  memset(crt, 0, sizeof(crt[0]) * (CONSOLE_VIEWABLE_NUM_OF_LINE * CONSOLE_LINE_LENGTH));
+  memset(crt, 0,
+         sizeof(crt[0]) * (CONSOLE_VIEWABLE_NUM_OF_LINE * CONSOLE_LINE_LENGTH));
   update_pos(pos);
 }
 

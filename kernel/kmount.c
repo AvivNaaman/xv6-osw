@@ -340,20 +340,25 @@ static struct mount_list *shallowcopyactivemounts(struct mount **newcwdmount) {
   return head;
 }
 
-static inline void print_mount_full_info(const struct mount * const m) {
-  cprintf("mount: %p, parent: %p, mountpoint: %p, ref: %d, isbind: %d sb: %p bind %p\n", m,
-          m->parent, m->mountpoint, m->ref, m->isbind, m->sb, m->bind);
+static inline void print_mount_full_info(const struct mount *const m) {
+  cprintf(
+      "mount: %p, parent: %p, mountpoint: %p, ref: %d, isbind: %d sb: %p bind "
+      "%p\n",
+      m, m->parent, m->mountpoint, m->ref, m->isbind, m->sb, m->bind);
 }
 
-static void fixparents(struct mount_list * const new_active_mounts) {
+static void fixparents(struct mount_list *const new_active_mounts) {
   struct mount_list *new_current = new_active_mounts;
-  const struct mount_list *old_current = myproc()->nsproxy->mount_ns->active_mounts;
+  const struct mount_list *old_current =
+      myproc()->nsproxy->mount_ns->active_mounts;
 
   while (old_current != 0) {
     if (old_current->mnt.parent != 0) {
-      struct mount_list *old_found_parent = myproc()->nsproxy->mount_ns->active_mounts;
+      struct mount_list *old_found_parent =
+          myproc()->nsproxy->mount_ns->active_mounts;
       struct mount_list *new_found_parent = new_active_mounts;
-      while (old_found_parent != 0 && old_current->mnt.parent != &old_found_parent->mnt) {
+      while (old_found_parent != 0 &&
+             old_current->mnt.parent != &old_found_parent->mnt) {
         old_found_parent = old_found_parent->next;
         new_found_parent = new_found_parent->next;
       }
@@ -363,8 +368,7 @@ static void fixparents(struct mount_list * const new_active_mounts) {
       // same assertion as below for parents.
       if (old_found_parent->mnt.isbind) {
         XV6_ASSERT(old_found_parent->mnt.bind == old_found_parent->mnt.bind)
-      }
-      else {
+      } else {
         XV6_ASSERT(old_found_parent->mnt.sb == old_found_parent->mnt.sb)
       }
       XV6_ASSERT(new_current->mnt.parent == NULL);
@@ -373,9 +377,11 @@ static void fixparents(struct mount_list * const new_active_mounts) {
 
     XV6_ASSERT(old_current->mnt.isbind == new_current->mnt.isbind);
     if (old_current->mnt.isbind) {
-      XV6_ASSERT(old_current->mnt.bind == new_current->mnt.bind && old_current->mnt.bind != 0);
+      XV6_ASSERT(old_current->mnt.bind == new_current->mnt.bind &&
+                 old_current->mnt.bind != 0);
     } else {
-      XV6_ASSERT(old_current->mnt.sb == new_current->mnt.sb && old_current->mnt.sb != 0);
+      XV6_ASSERT(old_current->mnt.sb == new_current->mnt.sb &&
+                 old_current->mnt.sb != 0);
     }
 
     new_current = new_current->next;

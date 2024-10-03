@@ -606,39 +606,36 @@ static int pivotroottest(void) {
   }
 
   mkdir("/a/oldroot");
-  if (pivot_root("/a", "/a/oldroot") != 0)
-  {
+  if (pivot_root("/a", "/a/oldroot") != 0) {
     printf(stdout, "pivotroottest: failed to pivot root!\n");
     return 1;
   }
 
-  if (stat("/test.txt", &testfile_stat) == 0)
-  {
+  if (stat("/test.txt", &testfile_stat) == 0) {
     printf(stdout, "pivotroottest: test file still exists in root directory\n");
     return 1;
   }
 
-  if (stat("/oldroot/test.txt", &testfile_stat) != 0)
-  {
+  if (stat("/oldroot/test.txt", &testfile_stat) != 0) {
     printf(stdout, "pivotroottest: failed to find test file in old root dir\n");
     return 1;
   }
 
   mkdir("/oldroot/a");
-  if (pivot_root("/oldroot", "/oldroot/a") != 0)
-  {
-    printf(stdout, "pivotroottest: failed to pivot root back to original root!\n");
+  if (pivot_root("/oldroot", "/oldroot/a") != 0) {
+    printf(stdout,
+           "pivotroottest: failed to pivot root back to original root!\n");
     return 1;
   }
 
-  if (stat("/test.txt", &testfile_stat) != 0)
-  {
-    printf(stdout, "pivotroottest: failed to find test file in original root after pivot back to root\n");
+  if (stat("/test.txt", &testfile_stat) != 0) {
+    printf(stdout,
+           "pivotroottest: failed to find test file in original root after "
+           "pivot back to root\n");
     return 1;
   }
 
-  if (umount("/a") != 0)
-  {
+  if (umount("/a") != 0) {
     printf(stdout, "pivotroottest: failed to umount new root for cleanup\n");
     return 1;
   }

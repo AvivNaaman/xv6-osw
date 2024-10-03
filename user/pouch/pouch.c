@@ -11,6 +11,7 @@
 #include "ns_types.h"
 #include "param.h"
 #include "stat.h"
+#include "util.h"
 
 /*
  * Command line options
@@ -41,7 +42,7 @@ static pouch_status pouch_initialize_cgroup() {
   int cgroup_fd = -1;
   // check if cgoup filesystem already created
   if ((cgroup_fd = open(POUCH_CGROUPS_DIR, O_RDWR)) < 0) {
-    if (mkdir(POUCH_CGROUPS_DIR) != 0) {
+    if (mkdir_if_not_exist(POUCH_CGROUPS_DIR) != 0) {
       printf(stdout, "Pouch: Failed to create root cgroup.\n");
       return MOUNT_CGROUP_FAILED_ERROR_CODE;
     }
@@ -359,8 +360,10 @@ static const struct pouch_cli_command supported_pouch_commands[P_CMD_MAX] = {
 static bool is_match_attachment(const struct pouch_cli_command* cmd,
                                 const bool inside_container) {
   // use bit masks.
-  return ((cmd->inside_or_out & INSIDE_CONTAINER) == INSIDE_CONTAINER && inside_container) ||
-         ((cmd->inside_or_out & OUTSIDE_CONTAINER) == OUTSIDE_CONTAINER && !inside_container);
+  return ((cmd->inside_or_out & INSIDE_CONTAINER) == INSIDE_CONTAINER &&
+          inside_container) ||
+         ((cmd->inside_or_out & OUTSIDE_CONTAINER) == OUTSIDE_CONTAINER &&
+          !inside_container);
 }
 
 const struct pouch_cli_command* pouch_cli_get_command_from_args(
@@ -371,16 +374,17 @@ const struct pouch_cli_command* pouch_cli_get_command_from_args(
     goto end;
   }
 
-  // best match for the command -- if multiple commands match, choose the one matching inside/outside.
-  // that way we can have command with same name for inside and outside differently (see pouch info)
+  // best match for the command -- if multiple commands match, choose the one
+  // matching inside/outside. that way we can have command with same name for
+  // inside and outside differently (see pouch info)
   bool inside_container = pouch_container_is_attached();
   for (int i = 0; i < P_CMD_MAX; i++) {
     if (strcmp(argv[1], supported_pouch_commands[i].command_name) == 0) {
       if (best_match == NULL) {
         best_match = &supported_pouch_commands[i];
-      }
-      else {
-        if (is_match_attachment(&supported_pouch_commands[i], inside_container)) {
+      } else {
+        if (is_match_attachment(&supported_pouch_commands[i],
+                                inside_container)) {
           best_match = &supported_pouch_commands[i];
           break;
         }
@@ -396,8 +400,8 @@ const struct pouch_cli_command* pouch_cli_get_command_from_args(
   if (!is_match_attachment(best_match, inside_container)) {
     printf(stderr, "Error: command %s not allowed in %s container.\n", argv[1],
            inside_container ? "inside" : "outside");
-           best_match = NULL;
-           goto end;
+    best_match = NULL;
+    goto end;
   }
 
 end:
