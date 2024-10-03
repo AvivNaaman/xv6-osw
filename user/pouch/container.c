@@ -79,14 +79,8 @@ pouch_status pouch_container_limit(const char* const container_name,
   strcat(cg_limit_cname, "/");
   strcat(cg_limit_cname, cgroup_state_obj);
 
-  int cont_fd = open(container_name, 0);
-  if (cont_fd < 0) {
-    printf(stderr, "There is no container: %s in a started stage\n",
-           container_name);
-    goto error;
-  }
-  if (close(cont_fd) < 0) {
-    printf(stderr, "Cannot close %s\n", container_name);
+  if (pouch_cconf_read(container_name, NULL) != SUCCESS_CODE) {
+    printf(stderr, "Pouch: %s container not found\n", container_name);
     goto error;
   }
 
@@ -140,25 +134,26 @@ pouch_status pouch_container_print_info(const char* container_name) {
 
   strcpy(cgmax, POUCH_CGROUPS_DIR);
   strcat(cgmax, "/");
-  strcat(cgmax, container_name);
+  strcat(cgmax, conf.container_name);
   strcat(cgmax, "/cpu.max");
 
   strcpy(cgstat, POUCH_CGROUPS_DIR);
   strcat(cgstat, "/");
-  strcat(cgstat, container_name);
+  strcat(cgstat, conf.container_name);
   strcat(cgstat, "/cpu.stat");
 
   int cpu_max_fd = open(cgmax, O_RDWR);
   int cpu_stat_fd = open(cgstat, O_RDWR);
 
   if (pouch_container_is_attached()) {
-    printf(stdout, "     Pouch container- %s: connected\n", container_name);
+    printf(stdout, "     Pouch container- %s: connected\n", conf.container_name);
   } else {
-    printf(stdout, "     Pouch container- %s: started\n", container_name);
+    printf(stdout, "     Pouch container- %s: started\n", conf.container_name);
   }
 
-  printf(stdout, "tty - %s\n", conf.tty_name);
+  printf(stdout, "tty - %d\n", conf.tty_num);
   printf(stdout, "pid - %d\n", conf.pid);
+  printf(stdout, "image - %s\n", conf.image_name);
   printf(stdout, "     cgroups:\n");
 
   if (cpu_max_fd < 0 || cpu_stat_fd < 0) {
@@ -199,7 +194,6 @@ done:
 pouch_status pouch_containers_print_all() {
   int i;
   int tty_fd = 0;
-  char tty[] = "/ttyX";
   char buf[CNTNAMESIZE] = {0};
   int is_empty_flag = 0;
   int id = 1;
@@ -208,14 +202,13 @@ pouch_status pouch_containers_print_all() {
 
   // Not including the console tty
   for (i = 0; i < (MAX_TTY - 1); i++) {
-    tty[4] = '0' + i;
-    if ((tty_fd = open(tty, O_RDWR)) < 0) {
-      printf(stderr, "cannot open %s fd\n", tty);
+    if ((tty_fd = pouch_open_tty(i, O_RDWR)) < 0) {
+      printf(stderr, "cannot open tty%d\n", i);
       status = TTY_OPEN_ERROR_CODE;
       goto error;
     }
-    if ((status = pouch_pconf_get_ttyname(tty, buf)) != SUCCESS_CODE) {
-      printf(stderr, "failed to read pconf from %s\n", tty);
+    if ((status = pouch_pconf_get_ttyname(i, buf)) != SUCCESS_CODE) {
+      printf(stderr, "failed to read pconf for tty%d\n", i);
       goto error;
     }
     if (!buf[0]) {
@@ -240,7 +233,7 @@ pouch_status pouch_containers_print_all() {
 error:
   if (tty_fd > 0) {
     if (close(tty_fd) < 0 && status == SUCCESS_CODE) {
-      printf(stderr, "cannot close %s fd\n", tty);
+      printf(stderr, "cannot close tty%d fd %d\n", i, tty_fd);
       status = TTY_CLOSE_ERROR_CODE;
     }
   }
@@ -250,30 +243,33 @@ error:
 pouch_status pouch_container_get_connected_name(char* const cname) {
   int i;
   int tty_fd;
-  char tty[] = "/ttyX";
-  char buf[CNTNAMESIZE] = {0};
-  bool found = false;
+  char attached_container_name[CNTNAMESIZE] = {0};
 
   // Not including the console tty
-  for (i = 0; i < (MAX_TTY - 1) && !found; i++) {
-    tty[4] = '0' + i;
-    if ((tty_fd = open(tty, O_RDWR)) < 0) {
-      printf(stderr, "cannot open %s fd\n", tty);
+  for (i = 0; i < MAX_TTY - 1; i++) {
+    if ((tty_fd = pouch_open_tty(i, O_RDWR)) < 0) {
+      printf(stderr, "cannot open tty%d fd\n", i);
       return TTY_OPEN_ERROR_CODE;
     }
-
-    if (is_connected_tty(tty_fd)) {
-      pouch_pconf_get_ttyname(tty, buf);
-      strcpy(cname, buf);
-      found = true;
+    bool is_curr_tty_connected = is_connected_tty(tty_fd);
+    if (close(tty_fd) < 0) {
+      printf(stderr, "cannot close tty%d fd\n", i);
+      return TTY_CLOSE_ERROR_CODE;
     }
+    if (!is_curr_tty_connected) continue;
 
-    close(tty_fd);
+    if (pouch_pconf_get_ttyname(i, attached_container_name) != SUCCESS_CODE) {
+      printf(stderr, "failed to read pconf or connected tty from tty%d\n", i);
+      return ERROR_CODE;
+    }
+    break;
   }
 
-  if (!buf[0]) {
+  if (!attached_container_name[0]) {
     return CONTAINER_NOT_FOUND_CODE;
   }
+
+  strcpy(cname, attached_container_name);
   return SUCCESS_CODE;
 }
 
@@ -329,21 +325,19 @@ static pouch_status prepare_old_root_mount_path(const char* const base_dir,
  *   @input: none
  *   @output: tty_name
  */
-static pouch_status find_tty(char* const tty_name) {
+static pouch_status find_free_tty(int* const tty_found) {
   int i;
   int tty_fd;
-  char tty[] = "/ttyX";
-
+  *tty_found = -1;
   // Not including the console tty
   for (i = 0; i < (MAX_TTY - 1); i++) {
-    tty[4] = '0' + i;
-    if ((tty_fd = open(tty, O_RDWR)) < 0) {
-      printf(stderr, "cannot open %s fd\n", tty);
+    if ((tty_fd = pouch_open_tty(i, O_RDWR)) < 0) {
+      printf(stderr, "cannot open tty%d\n", i);
       return TTY_OPEN_ERROR_CODE;
     }
 
     if (!is_attached_tty(tty_fd)) {
-      strcpy(tty_name, tty);
+      *tty_found = i;
       close(tty_fd);
       return SUCCESS_CODE;
     }
@@ -358,13 +352,13 @@ pouch_status pouch_container_start(const char* container_name,
   int tty_fd = -1;
   int pid = -1;
   int pid2 = -1;
-  char tty_name[10];
-  char cg_cname[MAX_PATH_LENGTH];
-  char image_mount_point[MAX_PATH_LENGTH];
-  char old_root_mount_point[MAX_PATH_LENGTH];
-  char image_path[MAX_PATH_LENGTH];
+  int tty_to_use = -1;
+  char cg_cname[MAX_PATH_LENGTH] = {0};
+  char image_mount_point[MAX_PATH_LENGTH] = {0};
+  char old_root_mount_point[MAX_PATH_LENGTH] = {0};
+  char image_path[MAX_PATH_LENGTH] = {0};
   int daemonize = 1;
-  mutex_t parent_mutex, global_mutex;
+  mutex_t parent_mutex = {0}, global_mutex = {0};
   pouch_status parent_status = SUCCESS_CODE;
 
   // initialize the mutex for the parent (it will release the lock only when its
@@ -392,7 +386,7 @@ pouch_status pouch_container_start(const char* container_name,
   }
 
   // Find tty name
-  if ((parent_status = find_tty(tty_name)) != SUCCESS_CODE) {
+  if ((parent_status = find_free_tty(&tty_to_use)) != SUCCESS_CODE) {
     printf(stdout, "Pouch: cannot create more containers\n");
     goto prep_error_locked;
   }
@@ -403,13 +397,8 @@ pouch_status pouch_container_start(const char* container_name,
     goto prep_error_locked;
   }
 
-  int cont_fd = open(container_name, 0);
-  if (cont_fd < 0) {
-    printf(stdout, "Pouch: %s starting\n", container_name);
-    close(cont_fd);
-  } else {
-    printf(stderr, "Pouch: %s container is already started\n", container_name);
-    parent_status = CONTAINER_ALREADY_STARTED_CODE;
+  if (pouch_cconf_read(container_name, NULL) == SUCCESS_CODE) {
+    printf(stderr, "Pouch: %s container already exists!\n", container_name);
     goto prep_error_locked;
   }
 
@@ -428,13 +417,13 @@ pouch_status pouch_container_start(const char* container_name,
   }
 
   // update cname in pouch conf
-  if ((parent_status = pouch_pconf_write(tty_name, container_name)) < 0) {
+  if ((parent_status = pouch_pconf_write(tty_to_use, container_name)) < 0) {
     printf(stdout, "Pouch: failed to write to pconf for %s\n", container_name);
     goto prep_error_locked;
   }
 
-  if ((tty_fd = open(tty_name, O_RDWR)) < 0) {
-    printf(stderr, "cannot open tty %s %d\n", tty_name, tty_fd);
+  if ((tty_fd = pouch_open_tty(tty_to_use, O_RDWR)) < 0) {
+    printf(stderr, "cannot open tty%d config\n", tty_to_use);
     parent_status = TTY_OPEN_ERROR_CODE;
     goto prep_error_locked;
   }
@@ -463,17 +452,34 @@ pouch_status pouch_container_start(const char* container_name,
         child_status = POUCH_MUTEX_ERROR_CODE;
         goto child_error;
       }
+
+      // We don't need the parent mutex anymore :)
+      if (mutex_unlock(&parent_mutex) != MUTEX_SUCCESS)  {
+        perror("Failed to unlock parent mutex");
+        child_status = POUCH_MUTEX_ERROR_CODE;
+        goto child_error;
+      }
+
       // attach stderr stdin stdout
       if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
         printf(stderr, "attach failed - error in connecting to tty: %d\n",
                tty_fd);
         goto child_error;
       }
-      // "Child process - setting up namespaces for the container
-      // Set up mount namespace.
-      if (unshare(MOUNT_NS) < 0) {
-        printf(stdout, "Cannot create mount namespace\n");
-        child_status = UNSAHRE_MNT_NS_FAILED_ERROR_CODE;
+
+      if (close(tty_fd) < 0) {
+        perror("Failed to close tty_fd");
+        child_status = TTY_CLOSE_ERROR_CODE;
+        tty_fd = -1;
+        goto child_error;
+      }
+
+      tty_fd = -1;
+
+      // No more protection needed from here -- and after pivoting root, it'll not work.
+      if (mutex_unlock(&global_mutex) != MUTEX_SUCCESS) {
+        perror("Failed to unlock global mutex");
+        child_status = POUCH_MUTEX_ERROR_CODE;
         goto child_error;
       }
 
@@ -500,6 +506,46 @@ pouch_status pouch_container_start(const char* container_name,
         printf(stderr, "Pouch: failed to mount image %s at %s!\n", image_name,
                image_mount_point);
         child_status = IMAGE_MOUNT_FAILED_ERROR_CODE;
+        goto child_error;
+      }
+
+      // now, bind mount some required components:
+      // 1. pouch configs dir
+      char new_rooted_pouch_configs_dir[MAX_PATH_LENGTH];
+      strcpy(new_rooted_pouch_configs_dir, image_mount_point);
+      strcat(new_rooted_pouch_configs_dir, POUCH_CONFIGS_DIR);
+      if (mkdir(new_rooted_pouch_configs_dir) < 0) {
+        printf(stderr, "Pouch: failed to create pouch configs dir at %s!\n",
+               new_rooted_pouch_configs_dir);
+        child_status = FAILED_TO_CREATE_POUCH_CONFIGS_DIR;
+        goto child_error;
+      }
+      if (mount(POUCH_CONFIGS_DIR, new_rooted_pouch_configs_dir, "bind") < 0) {
+        printf(stderr, "Pouch: failed to bind mount %s at %s!\n",
+               new_rooted_pouch_configs_dir, POUCH_CONFIGS_DIR);
+               child_status = FAILED_TO_BIND_MOUNT_POUCH_CONFIGS_DIR;
+      }
+      // 2. /dev/ for ttys
+      char new_rooted_dev_dir[MAX_PATH_LENGTH];
+      strcpy(new_rooted_dev_dir, image_mount_point);
+      strcat(new_rooted_dev_dir, DEV_DIR);
+      if (mkdir(new_rooted_dev_dir) < 0) {
+        printf(stderr, "Pouch: failed to create dev dir at %s!\n",
+               new_rooted_dev_dir);
+        child_status = FAILED_TO_CREATE_DEV_DIR;
+        goto child_error;
+      }
+      if (mount(DEV_DIR, new_rooted_dev_dir, "bind") < 0) {
+        printf(stderr, "Pouch: failed to bind mount %s at %s!\n",
+               new_rooted_dev_dir, DEV_DIR);
+               child_status = FAILED_TO_BIND_MOUNT_DEV_DIR;
+      }
+
+      // Child process - setting up namespaces for the container
+      // Set up mount namespace.
+      if (unshare(MOUNT_NS) < 0) {
+        printf(stdout, "Cannot create mount namespace\n");
+        child_status = UNSAHRE_MNT_NS_FAILED_ERROR_CODE;
         goto child_error;
       }
 
@@ -546,16 +592,16 @@ pouch_status pouch_container_start(const char* container_name,
         goto child_error;
       }
 
-      // Child was created, now we can release the global lock!
-      // TODO(??) Call an actual entrypoint in the new image
-      mutex_unlock(&global_mutex);
       printf(stderr, "Entering container\n");
-      exec(container_exec_path, start_container_argv);
-      // child image is replaced with sh, so this line should never be reached.
+      child_status = exec(container_exec_path, start_container_argv);
+      // child image is replaced with sh, so this line should never be reached unless error.
+      exit(child_status);
 
     // unlock anyway in case of failure.
     child_error:
-      mutex_unlock(&global_mutex);
+      if (mutex_unlock(&global_mutex) != MUTEX_SUCCESS) perror("Failed to unlock global mutex");
+      if (tty_fd) { detach_tty(tty_fd); close(tty_fd); }
+      if (*old_root_mount_point) {unlink(old_root_mount_point); }
       exit(child_status);
     } else {  // parent
       // Move the current process to "/cgroup/<cname>" cgroup.
@@ -568,8 +614,9 @@ pouch_status pouch_container_start(const char* container_name,
         goto parent_error;
       }
       if (close(cgroup_procs_fd) < 0) goto parent_error;
+      // Setup configuration for the new container
       container_config conf;
-      strcpy(conf.tty_name, tty_name);
+      conf.tty_num = tty_to_use;
       strcpy(conf.container_name, container_name);
       strcpy(conf.image_name, image_name);
       conf.pid = pid;
@@ -578,9 +625,13 @@ pouch_status pouch_container_start(const char* container_name,
         goto parent_error;
       }
       // let the child process run
-      mutex_unlock(&parent_mutex);
-      wait(0);
-      exit(0);
+      if (mutex_unlock(&parent_mutex) != MUTEX_SUCCESS) {
+        perror("Failed to unlock parent mutex");
+        parent_status = POUCH_MUTEX_ERROR_CODE;
+        return parent_status;
+      }
+
+      exit(wait(0));
 
     parent_error:
       mutex_unlock(&parent_mutex);
@@ -606,94 +657,127 @@ pouch_status pouch_container_stop(const char* const container_name) {
   int tty_fd = -1;
   if ((ret = pouch_cconf_read(container_name, &conf)) != SUCCESS_CODE) {
     printf(stdout, "Pouch: %s container not found\n", container_name);
-    return ret;
+    goto end;
   }
+
   // Return the process to root cgroup.
-  char cur_pid_buf[10];
+  char cur_pid_buf[10] = {0};
   int cgroup_procs_fd = open("/cgroup/cgroup.procs", O_RDWR);
   itoa(cur_pid_buf, conf.pid);
   if (write(cgroup_procs_fd, cur_pid_buf, sizeof(cur_pid_buf)) < 0) {
     close(cgroup_procs_fd);
-    return -1;
+    perror("Failed to write to cgroup_procs_fd");
+    ret = FAILED_TO_WRITE_TO_CGROUP_PROCS_FD;
   }
-  if (close(cgroup_procs_fd) < 0) return -1;
+  if (close(cgroup_procs_fd) < 0) {
+    perror("Failed to close cgroup_procs_fd");
+    ret = FAILED_TO_CLOSE_CGROUP_PROCS_FD;
+  }
 
   if (kill(conf.pid) < 0) {
-    return KILL_CONTAINER_PROC_ERROR_CODE;
+    perror("Failed to kill container process");
+    ret = KILL_CONTAINER_ERROR_CODE;
+    goto end;
   }
-  if (unlink(container_name) < 0) return -1;
+
+  if ((ret = pouch_cconf_unlink(&conf)) != SUCCESS_CODE) {
+    printf(stderr, "Failed to unlink cconf %s\n", conf.container_name);
+    goto end;
+  }
 
   char cg_cname[MAX_PATH_LENGTH];
 
   if ((ret = prepare_cgroup_cname(container_name, cg_cname)) != SUCCESS_CODE) {
+    perror("Failed to prepare cgroup name");
     return ret;
   }
 
   if (unlink(cg_cname) < 0) {
-    return -1;
+    perror("Failed to unlink cgroup");
+    ret = UNLINK_CGROUP_ERROR_CODE;
   }
-  if ((ret = pouch_pconf_remove(conf.tty_name)) != SUCCESS_CODE) goto error;
+  if ((ret = pouch_pconf_remove(conf.tty_num)) != SUCCESS_CODE) {
+    perror("Failed to remove pconf");
+    goto end;
+  }
 
-  char mnt_point[MAX_PATH_LENGTH];
+  char mnt_point[MAX_PATH_LENGTH] = {0};
   if ((ret = prepare_image_mount_path(container_name, mnt_point)) !=
       SUCCESS_CODE) {
-    return ret;
+        perror("Failed to prepare image mount path");
+        goto end;
   }
 
-  prepare_image_mount_path(container_name, mnt_point);
-  // umount not needed as the container is already destroyed,
-  // and mount lives only inside the container. TODO(???) Is this still needed
-  // after pivot root?
+  if ((ret = prepare_image_mount_path(container_name, mnt_point)) != SUCCESS_CODE) {
+    printf(stderr, "Pouch: failed to prepare image mount point\n");
+    goto end;
+  }
+
+  // umount is not required, since the mount and the namespace are being held by the 
+  // container's process, which is being killed (therefore, both are destroyed).
+
   if (unlink(mnt_point) < 0) {
-    return -1;
+    perror("Failed to unlink image mount point");
+    ret = UNLINK_IMAGE_MOUNT_POINT_ERROR_CODE;
   }
 
-  tty_fd = open(conf.tty_name, O_RDWR);
-  if (tty_fd < 0) {
-    printf(stderr, "cannot open tty: %s\n", conf.tty_name);
-    return TTY_OPEN_ERROR_CODE;
+  if ((tty_fd = pouch_open_tty(conf.tty_num, O_RDWR)) < 0) {
+    printf(stderr, "cannot open tty: tty%d\n", conf.tty_num);
+    ret = TTY_OPEN_ERROR_CODE;
   }
 
   if (is_connected_tty(tty_fd)) {
-    if (disconnect_tty(tty_fd) < 0) return TTY_DISCONNECT_ERROR_CODE;
+    if (disconnect_tty(tty_fd) < 0) {
+      ret = TTY_DISCONNECT_ERROR_CODE;
+      goto end;
+    }
   }
-  if (detach_tty(tty_fd) < 0) return TTY_DETACH_ERROR_CODE;
-  if (close(tty_fd) < 0) return TTY_CLOSE_ERROR_CODE;
-  tty_fd = -1;
+  if (detach_tty(tty_fd) < 0) {
+    ret = TTY_DETACH_ERROR_CODE;
+    goto end;
+  }
 
   printf(stdout, "Pouch: %s destroyed\n", container_name);
-  return SUCCESS_CODE;
+  ret = SUCCESS_CODE;
 
-error:
-  if (tty_fd >= 0) close(tty_fd);
+end:
+  if (tty_fd >= 0) if (close(tty_fd) < 0) return TTY_CLOSE_ERROR_CODE;
   return ret;
 }
 
 pouch_status pouch_container_connect(const char* const container_name) {
   pouch_status ret = SUCCESS_CODE;
   container_config conf;
+  int tty_fd = -1;
   if ((ret = pouch_cconf_read(container_name, &conf)) != SUCCESS_CODE) {
     printf(stdout, "Pouch: %s container not found\n", container_name);
-    return ret;
+    ret = CONTAINER_NOT_FOUND_CODE;
+    goto end;
   }
 
-  int tty_fd = open(conf.tty_name, O_RDWR);
-  if (tty_fd < 0) {
-    printf(stderr, "cannot open tty: %s\n", conf.tty_name);
-    return TTY_OPEN_ERROR_CODE;
+  if ((tty_fd = pouch_open_tty(conf.tty_num, O_RDWR)) < 0) {
+    printf(stderr, "cannot open tty: %d\n", conf.tty_num);
+    ret = TTY_OPEN_ERROR_CODE;
+    goto end;
   }
 
   if (!is_connected_tty(tty_fd)) {
     if (connect_tty(tty_fd) < 0) {
       close(tty_fd);
       printf(stderr, "cannot connect to the tty\n");
-      return TTY_CONNECT_ERROR_CODE;
+      ret = TTY_CONNECT_ERROR_CODE;
+      goto end;
     }
   } else {
     printf(stdout, "Pouch: %s is already connected\n", container_name);
   }
-  close(tty_fd);
-  return SUCCESS_CODE;
+  ret = SUCCESS_CODE;
+
+end:
+  if (tty_fd >= 0) {
+    if (close(tty_fd) < 0) return TTY_CLOSE_ERROR_CODE;
+  }
+  return ret;
 }
 
 pouch_status pouch_container_disconnect() {
@@ -714,8 +798,8 @@ pouch_status pouch_container_disconnect() {
     goto end;
   }
 
-  if ((tty_fd = open(conf.tty_name, O_RDWR)) < 0) {
-    printf(stderr, "cannot open tty: %s\n", conf.tty_name);
+  if ((tty_fd = pouch_open_tty(conf.tty_num, O_RDWR)) < 0) {
+    printf(stderr, "cannot open tty: %d\n", conf.tty_num);
     status = TTY_OPEN_ERROR_CODE;
     goto end;
   }

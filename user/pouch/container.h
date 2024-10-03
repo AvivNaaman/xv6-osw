@@ -1,3 +1,6 @@
+#ifndef XV6_USER_POUCH_CONTAINER_H
+#define XV6_USER_POUCH_CONTAINER_H
+
 #include "pouch.h"
 #include "types.h"
 
@@ -69,3 +72,5 @@ pouch_status pouch_container_limit(const char* const container_name,
  *   @output: none
  */
 pouch_status pouch_containers_print_all();
+
+#endif  // XV6_USER_POUCH_CONTAINER_H

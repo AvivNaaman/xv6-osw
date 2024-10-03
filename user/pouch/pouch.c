@@ -335,7 +335,7 @@ static const struct pouch_cli_command supported_pouch_commands[P_CMD_MAX] = {
      .command_name = POUCH_CMD_ARG_INFO,
      .inside_or_out = OUTSIDE_CONTAINER},
     {.cmd = P_CMD_INFO_INSIDE,
-     .callback = pouch_cli_do_container_operation,
+     .callback = pouch_cli_do_global_op,
      .command_name = POUCH_CMD_ARG_INFO,
      .inside_or_out = INSIDE_CONTAINER},
     {.cmd = P_CMD_LIST,
@@ -356,40 +356,52 @@ static const struct pouch_cli_command supported_pouch_commands[P_CMD_MAX] = {
      .inside_or_out = INSIDE_AND_OUTSIDE_CONTAINER},
 };
 
+static bool is_match_attachment(const struct pouch_cli_command* cmd,
+                                const bool inside_container) {
+  // use bit masks.
+  return ((cmd->inside_or_out & INSIDE_CONTAINER) == INSIDE_CONTAINER && inside_container) ||
+         ((cmd->inside_or_out & OUTSIDE_CONTAINER) == OUTSIDE_CONTAINER && !inside_container);
+}
+
 const struct pouch_cli_command* pouch_cli_get_command_from_args(
     const int argc, const char* const argv[]) {
+  const struct pouch_cli_command* best_match = NULL;
   if (argc < 2) {
     printf(stderr, "Error: No command specified.\n");
-    goto error;
+    goto end;
   }
 
+  // best match for the command -- if multiple commands match, choose the one matching inside/outside.
+  // that way we can have command with same name for inside and outside differently (see pouch info)
   bool inside_container = pouch_container_is_attached();
-  bool has_name_match = false;
   for (int i = 0; i < P_CMD_MAX; i++) {
     if (strcmp(argv[1], supported_pouch_commands[i].command_name) == 0) {
-      has_name_match = true;
-      if (inside_container &&
-          !(supported_pouch_commands[i].inside_or_out & INSIDE_CONTAINER)) {
-        printf(stderr, "Error: Invalid command %s for inside container.\n",
-               argv[1]);
-        goto error;
+      if (best_match == NULL) {
+        best_match = &supported_pouch_commands[i];
       }
-      if (!inside_container &&
-          !(supported_pouch_commands[i].inside_or_out & OUTSIDE_CONTAINER)) {
-        printf(stderr, "Error: Invalid command %s for outside container.\n",
-               argv[1]);
-        goto error;
+      else {
+        if (is_match_attachment(&supported_pouch_commands[i], inside_container)) {
+          best_match = &supported_pouch_commands[i];
+          break;
+        }
       }
-      return &supported_pouch_commands[i];
     }
   }
 
-  if (!has_name_match) {
+  if (best_match == NULL) {
     printf(stderr, "Error: no command %s.\n", argv[1]);
+    goto end;
   }
 
-error:
-  return NULL;
+  if (!is_match_attachment(best_match, inside_container)) {
+    printf(stderr, "Error: command %s not allowed in %s container.\n", argv[1],
+           inside_container ? "inside" : "outside");
+           best_match = NULL;
+           goto end;
+  }
+
+end:
+  return best_match;
 }
 
 int main(int argc, const char* const argv[]) {
