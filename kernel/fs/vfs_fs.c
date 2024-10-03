@@ -50,8 +50,7 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
 
   if (*path == '/') {
     curmount = mntdup(getrootmount());
-    ip = initprocessroot(NULL);
-
+    ip = get_mount_root_ip(curmount);
   } else {
     curmount = mntdup(myproc()->cwdmount);
     ip = myproc()->cwd->i_op->idup(myproc()->cwd);
@@ -79,8 +78,10 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
 
     mntinum = ip->inum;
     ip->i_op->iunlockput(ip);
+
+    // handle ".." in the path
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
-        (curmount != getinitialrootmount()) &&
+        (curmount != getrootmount()) &&  // avoid root escape
         ((mntinum == ROOTINO) || (mntinum == OBJ_ROOTINO)) &&
         curmount->mountpoint != 0 &&
         curmount->mountpoint->i_op->dirlookup != NULL) {
@@ -95,19 +96,11 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
     if (nextmount != NULL) {
       mntput(curmount);
       curmount = nextmount;
-      ip->i_op->iput(next);
-
-      if (curmount->isbind) {
-        XV6_ASSERT(curmount->bind != 0);
-        next = curmount->bind->i_op->idup(curmount->bind);
-      } else {
-        XV6_ASSERT(curmount->sb != 0);
-        struct vfs_inode *root_inode = curmount->sb->root_ip;
-        next = root_inode->i_op->idup(root_inode);  // ref
-      }
+      next->i_op->iput(next);
+      ip = get_mount_root_ip(curmount);
+    } else {
+      ip = next;
     }
-
-    ip = next;
   }
 
   if (nameiparent) {

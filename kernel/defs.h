@@ -83,14 +83,16 @@ void mntinit(void);
 int mount(struct vfs_inode*, struct device*, struct vfs_inode*, struct mount*);
 int umount(struct mount*);
 struct mount* getrootmount(void);
+struct mount* setrootmount(struct mount*);
 struct mount* mntdup(struct mount*);
 void mntput(struct mount*);
 struct mount* mntlookup(struct vfs_inode*, struct mount*);
 void umountall(struct mount_list*);
 struct mount_list* copyactivemounts(void);
 struct mount* getroot(struct mount_list*);
-struct mount* getinitialrootmount(void);
-struct vfs_inode* initprocessroot(struct mount**);
+struct vfs_inode* get_mount_root_ip(struct mount*);
+int pivot_root(struct vfs_inode*, struct mount*, struct vfs_inode*,
+               struct mount*);
 
 // ioapic.c
 void ioapicenable(int irq, int cpu);
@@ -152,7 +154,7 @@ void mpinit(void);
 
 // namespace.c
 void namespaceinit(void);
-struct nsproxy* emptynsproxy(void);
+struct nsproxy* initnsproxy(void);
 struct nsproxy* namespacedup(struct nsproxy*);
 void namespaceput(struct nsproxy*);
 int unshare(int nstype);

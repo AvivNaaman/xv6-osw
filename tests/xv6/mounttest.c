@@ -590,6 +590,62 @@ static int procdevicestest(void) {
   return procfiletest("procdevicestest", "/proc/devices", 0);
 }
 
+static int pivotroottest(void) {
+  struct stat testfile_stat;
+
+  mkdir("/a");
+  int res = mount("internal_fs_a", "/a", 0);
+  if (res != 0) {
+    printf(stdout, "pivotroottest: mount returned %d\n", res);
+    return 1;
+  }
+
+  if (createfile("/test.txt", "in root mount") != 0) {
+    printf(stdout, "pivotroottest: failed to create test file\n");
+    return 1;
+  }
+
+  mkdir("/a/oldroot");
+  if (pivot_root("/a", "/a/oldroot") != 0)
+  {
+    printf(stdout, "pivotroottest: failed to pivot root!\n");
+    return 1;
+  }
+
+  if (stat("/test.txt", &testfile_stat) == 0)
+  {
+    printf(stdout, "pivotroottest: test file still exists in root directory\n");
+    return 1;
+  }
+
+  if (stat("/oldroot/test.txt", &testfile_stat) != 0)
+  {
+    printf(stdout, "pivotroottest: failed to find test file in old root dir\n");
+    return 1;
+  }
+
+  mkdir("/oldroot/a");
+  if (pivot_root("/oldroot", "/oldroot/a") != 0)
+  {
+    printf(stdout, "pivotroottest: failed to pivot root back to original root!\n");
+    return 1;
+  }
+
+  if (stat("/test.txt", &testfile_stat) != 0)
+  {
+    printf(stdout, "pivotroottest: failed to find test file in original root after pivot back to root\n");
+    return 1;
+  }
+
+  if (umount("/a") != 0)
+  {
+    printf(stdout, "pivotroottest: failed to umount new root for cleanup\n");
+    return 1;
+  }
+
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   printf(stderr, "Running all mounttest\n");
   run_test(mounttest, "mounttest");
@@ -606,6 +662,7 @@ int main(int argc, char *argv[]) {
   run_test(umountwithopenfiletest, "umountwithopenfiletest");
   run_test(errorondeletedevicetest, "errorondeletedevicetest");
   run_test(umountnonrootmount, "umountnonrootmount");
+  run_test(pivotroottest, "pivotroottest");
 
   /* Tests that might leaves open mounts - leaves for last.
    * Other test might check how many open mounts there are
