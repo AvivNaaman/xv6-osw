@@ -475,7 +475,7 @@ int wait(int *wstatus) {
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
-        if (wstatus != 0) *wstatus = p->status;
+        if (wstatus != 0) *wstatus = W_STOPCODE(p->status);
         p->status = 0;
 
         release(&ptable.lock);

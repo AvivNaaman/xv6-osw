@@ -615,13 +615,15 @@ static int pivotrootfiletest(void) {
 
   // Old root test file shouldn't exist in this path
   if (stat("/test.txt", &testfile_stat) == 0) {
-    printf(stdout, "pivotrootfiletest: test file still exists in root directory\n");
+    printf(stdout,
+           "pivotrootfiletest: test file still exists in root directory\n");
     return 1;
   }
 
   // Old root test file should exist in this path
   if (stat("/oldroot/test.txt", &testfile_stat) != 0) {
-    printf(stdout, "pivotrootfiletest: failed to find test file in old root dir\n");
+    printf(stdout,
+           "pivotrootfiletest: failed to find test file in old root dir\n");
     return 1;
   }
 
@@ -642,7 +644,8 @@ static int pivotrootfiletest(void) {
 
   // Cleanup of test mount for pivot_root
   if (umount("/a") != 0) {
-    printf(stdout, "pivotrootfiletest: failed to umount new root for cleanup\n");
+    printf(stdout,
+           "pivotrootfiletest: failed to umount new root for cleanup\n");
     return 1;
   }
 
@@ -674,30 +677,30 @@ static int pivotrootmounttest(void) {
     }
 
     mkdir("/a/oldroot");
-    if (pivot_root("/a", "/a/oldroot") != 0)
-    {
+    if (pivot_root("/a", "/a/oldroot") != 0) {
       printf(stdout, "pivotrootmounttest: failed to pivot root!\n");
       exit(1);
     }
 
-    if (stat("/oldroot", &testfile_stat) != 0)
-    {
-      printf(stdout, "pivotrootmounttest: failed to find old root mount dir after pivot\n");
+    if (stat("/oldroot", &testfile_stat) != 0) {
+      printf(stdout,
+             "pivotrootmounttest: failed to find old root mount dir after "
+             "pivot\n");
       exit(1);
     }
 
     chdir("/");
 
     // Remove old root mount
-    if (umount("/oldroot") != 0)
-    {
+    if (umount("/oldroot") != 0) {
       printf(stdout, "pivotrootmounttest: failed to umount old root\n");
       exit(1);
     }
 
-    if (stat("/b/test.txt", &testfile_stat) != 0)
-    {
-      printf(stdout, "pivotrootmounttest: failed to find test file in bind mounted dir\n");
+    if (stat("/b/test.txt", &testfile_stat) != 0) {
+      printf(
+          stdout,
+          "pivotrootmounttest: failed to find test file in bind mounted dir\n");
       exit(1);
     }
 
@@ -705,7 +708,7 @@ static int pivotrootmounttest(void) {
   } else {
     int test_status = -1;
     wait(&test_status);
-    if (test_status != 0) {
+    if (WEXITSTATUS(test_status) != 0) {
       return 1;
     }
 
