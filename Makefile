@@ -84,6 +84,7 @@ tests/xv6/%:
 images/img_internal_fs_%: images/build/img_internal_fs_%.Dockerfile $(UPROGS_ABS)
 	mkdir -p images/build/user
 	cp $(UPROGS_ABS) images/build/user
+	strip images/build/user/*
 	docker build -t xv6_internal_fs_$* -f images/build/img_internal_fs_$*.Dockerfile images/build
 	mkdir -p images/img_internal_fs_$*
 	docker run --rm --mount type=bind,source="$(CURDIR)",target=/home/$(shell whoami)/xv6 \
