@@ -648,6 +648,16 @@ void native_fs_init(struct vfs_superblock *vfs_sb, struct device *dev) {
 static void fsdestroy(struct vfs_superblock *vfs_sb) {
   struct native_superblock_private *sbp = sb_private(vfs_sb);
   iput(vfs_sb->root_ip);
+  // Invalidate all inodes in the cache.
+  for (int i = 0; i < NINODE; i++) {
+    acquire(&icache.lock);
+    if (icache.inode[i].vfs_inode.ref > 0 &&
+        icache.inode[i].vfs_inode.sb == vfs_sb) {
+      cprintf("Destroying inode %d\n", i);
+      icache.inode[i].vfs_inode.ref = 0;
+    }
+    release(&icache.lock);
+  }
   kfree((char *)sbp);
 }
 

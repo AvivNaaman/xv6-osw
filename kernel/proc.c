@@ -391,9 +391,9 @@ void exit(int status) {
 
   begin_op();
   curproc->cwd->i_op->iput(curproc->cwd);
+  mntput(curproc->cwdmount);
   end_op();
 
-  mntput(curproc->cwdmount);
   curproc->cwdmount = 0;
   *curproc->cwdp = 0;
   curproc->cwd = 0;
