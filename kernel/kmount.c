@@ -76,6 +76,7 @@ static int addmountinternal(struct mount_list *mnt_list, struct device *dev,
       default:
         return -1;
     }
+    XV6_ASSERT(vfs_sb->ops != NULL);
   }
 
   // add to linked list
@@ -177,9 +178,12 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
     mntput(parent);
     return -1;
   }
+  
   release(&myproc()->nsproxy->mount_ns->lock);
+
   if (!newmount->isbind && newmount->sb->ops->start != NULL) {
     newmount->sb->ops->start(newmount->sb);
+    XV6_ASSERT(newmount->sb->root_ip != NULL);
   }
   return 0;
 }

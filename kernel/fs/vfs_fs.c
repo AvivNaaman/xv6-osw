@@ -45,8 +45,6 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
                                    struct mount **mnt) {
   struct vfs_inode *ip, *next;
   struct mount *curmount;
-  struct mount *nextmount = 0;
-  uint mntinum;
 
   if (*path == '/') {
     curmount = mntdup(getrootmount());
@@ -76,31 +74,31 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
       return 0;
     }
 
-    mntinum = ip->inum;
     ip->i_op->iunlockput(ip);
-
-    // handle ".." in the path
+  
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
-        (curmount != getrootmount()) &&  // avoid root escape
-        ((mntinum == ROOTINO) || (mntinum == OBJ_ROOTINO)) &&
+        (curmount != getrootmount()) &&  
+        (ip == curmount->sb->root_ip) &&
         curmount->mountpoint != 0 &&
         curmount->mountpoint->i_op->dirlookup != NULL) {
-      nextmount = mntdup(curmount->parent);
-      mntinum =
-          curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0)
-              ->inum;
-    } else {
-      nextmount = mntlookup(next, curmount);
-    }
-
-    if (nextmount != NULL) {
+      // valid ".." path component lookup
+      struct mount *nextmount = mntdup(curmount->parent);
+      next->i_op->iput(next); 
+      next = curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0);
       mntput(curmount);
       curmount = nextmount;
-      next->i_op->iput(next);
-      ip = get_mount_root_ip(curmount);
     } else {
-      ip = next;
+      // check if next is a mountpoint, and if so, switch to that mountpoint
+      struct mount *nextmount = mntlookup(next, curmount);
+      if (nextmount != NULL) {
+        next->i_op->iput(next);
+        next = get_mount_root_ip(nextmount);
+        mntput(curmount);
+        curmount = nextmount;
+      }
     }
+
+    ip = next;
   }
 
   if (nameiparent) {

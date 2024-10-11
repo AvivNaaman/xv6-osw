@@ -490,8 +490,10 @@ static pouch_status pouch_container_start_child(
     mutex_t* const start_running_child_mutex,
     mutex_t* const allow_mount_cleanup_mutex,
     mutex_t* const container_started_mutex, int tty_fd,
-    const char* const image_mount_point) {
+    const char* const image_mount_point,
+    const char* const container_name) {
   pouch_status child_status = SUCCESS_CODE;
+  int tty_attached = -1;
   char old_root_mount_point[MAX_PATH_LENGTH] = {0};
   // wait till the parent process finishes and releases the lock
   if (mutex_wait(start_running_child_mutex) != MUTEX_SUCCESS) {
@@ -500,20 +502,13 @@ static pouch_status pouch_container_start_child(
     goto child_error;
   }
 
-  // attach stderr stdin stdout
-  if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
-    printf(stderr, "attach failed - error in connecting to tty: %d\n", tty_fd);
+  // Check if config file exists -- if not, parent init failed and we should exit.
+  struct container_config to_remove = {0};
+  if (pouch_cconf_read(container_name, &to_remove) != SUCCESS_CODE) {
+    printf(stderr, "Container %s initialization failed, child exiting\n", container_name);
+    child_status = ERROR_CODE;
     goto child_error;
   }
-
-  if (close(tty_fd) < 0) {
-    perror("Failed to close tty_fd");
-    child_status = TTY_CLOSE_ERROR_CODE;
-    tty_fd = -1;
-    goto child_error;
-  }
-
-  tty_fd = -1;
 
   // Child process - setting up namespaces for the container
   // Set up mount namespace.
@@ -573,6 +568,14 @@ static pouch_status pouch_container_start_child(
     goto child_error;
   }
 
+
+  // attach stderr stdin stdout
+  if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
+    printf(stderr, "attach failed - error in connecting to tty: %d\n", tty_fd);
+    goto child_error;
+  }
+  tty_attached = tty_fd;
+
   printf(stderr, "Entering container\n");
   if (mutex_unlock(container_started_mutex) != MUTEX_SUCCESS) {
     perror("Failed to unlock container started mutex");
@@ -586,16 +589,27 @@ static pouch_status pouch_container_start_child(
 
 // unlock anyway in case of failure.
 child_error:
+  if (tty_attached >= 0) {
+    detach_tty(tty_attached);
+  }
   if (mutex_unlock(container_started_mutex) != MUTEX_SUCCESS)
     perror("Failed to unlock parent mutex");
   if (mutex_unlock(allow_mount_cleanup_mutex) != MUTEX_SUCCESS)
     perror("Failed to unlock parent mutex");
   if (tty_fd) {
-    detach_tty(tty_fd);
     close(tty_fd);
-  }  // TODO(Aviv): Remove cconf! container should be dead! clean up!
+  }
   if (*old_root_mount_point) {
     unlink(old_root_mount_point);
+  }
+  // if failed after the config was read, remove the config.
+  if (*to_remove.container_name) {
+    if (pouch_cconf_unlink(&to_remove) != SUCCESS_CODE) {
+      perror("Failed to remove container config");
+    }
+  }
+  else {
+    perror("Failed to remove container config");
   }
   exit(child_status);
 }
@@ -629,13 +643,14 @@ static void pouch_container_start_parent(
   }
 
   // Setup configuration for the new container
-  container_config conf;
+  container_config conf = {0};
   conf.tty_num = tty_to_use;
   strcpy(conf.container_name, container_name);
   strcpy(conf.image_name, image_name);
   conf.pid = pid;
   if ((parent_status = pouch_cconf_write(&conf)) != SUCCESS_CODE) {
     perror("Failed to write to cconf");
+    memset(&conf, 0, sizeof(conf));
     goto parent_end;
   }
   // let the child process run
@@ -662,6 +677,12 @@ static void pouch_container_start_parent(
   parent_status = wait(0);
 
 parent_end:
+// needs to fold config?
+  if (conf.container_name[0]) {
+    if (pouch_cconf_unlink(&conf) != SUCCESS_CODE) {
+      perror("Failed to remove container config");
+    }
+  }
   if (!child_allowed_to_start) {
     mutex_unlock(start_running_child_mutex);
   }
@@ -789,7 +810,7 @@ pouch_status pouch_container_start(const char* container_name,
     if (pid == 0) {  // child
       pouch_container_start_child(
           &start_running_child_mutex, &allow_mount_cleanup_mutex,
-          &container_started_mutex, tty_fd, image_mount_point);
+          &container_started_mutex, tty_fd, image_mount_point, container_name);
 
     } else {  // parent
       pouch_container_start_parent(pid, tty_to_use, container_name, image_name,
