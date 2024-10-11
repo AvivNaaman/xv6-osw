@@ -486,6 +486,189 @@ static pouch_status pouch_container_umount(const char* mount_path) {
   return failed ? ERROR_CODE : SUCCESS_CODE;
 }
 
+static pouch_status pouch_container_start_child(
+    mutex_t* const start_running_child_mutex,
+    mutex_t* const allow_mount_cleanup_mutex,
+    mutex_t* const container_started_mutex, int tty_fd,
+    const char* const image_mount_point) {
+  pouch_status child_status = SUCCESS_CODE;
+  char old_root_mount_point[MAX_PATH_LENGTH] = {0};
+  // wait till the parent process finishes and releases the lock
+  if (mutex_wait(start_running_child_mutex) != MUTEX_SUCCESS) {
+    printf(stdout, "Pouch: failed to wait on parent mutex\n");
+    child_status = POUCH_MUTEX_ERROR_CODE;
+    goto child_error;
+  }
+
+  // attach stderr stdin stdout
+  if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
+    printf(stderr, "attach failed - error in connecting to tty: %d\n", tty_fd);
+    goto child_error;
+  }
+
+  if (close(tty_fd) < 0) {
+    perror("Failed to close tty_fd");
+    child_status = TTY_CLOSE_ERROR_CODE;
+    tty_fd = -1;
+    goto child_error;
+  }
+
+  tty_fd = -1;
+
+  // Child process - setting up namespaces for the container
+  // Set up mount namespace.
+  if (unshare(MOUNT_NS) < 0) {
+    printf(stdout, "Cannot create mount namespace\n");
+    child_status = UNSAHRE_MNT_NS_FAILED_ERROR_CODE;
+    goto child_error;
+  }
+
+  if (prepare_old_root_mount_path(image_mount_point, old_root_mount_point) <
+      0) {
+    printf(stderr, "Pouch: failed to prepare old root mount dir at %s!\n",
+           image_mount_point);
+    child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+    goto child_error;
+  }
+
+  if (mkdir(old_root_mount_point) < 0) {
+    printf(stderr, "Pouch: failed to create  old root mount dir at %s!\n",
+           old_root_mount_point);
+    child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+    goto child_error;
+  }
+
+  if (pivot_root(image_mount_point, old_root_mount_point) < 0) {
+    printf(stderr, "Pouch: failed to pivot root to %s!\n", image_mount_point);
+    child_status = FAILED_TO_PIVOT_ROOT;
+    goto child_error;
+  }
+
+  if (chdir("/") < 0) {
+    printf(stderr, "Pouch: failed to change directory to %s!\n",
+           image_mount_point);
+    child_status = IMAGE_MOUNT_FAILED_ERROR_CODE;
+    goto child_error;
+  }
+
+  // now, parent can clean up mounts outside the container.
+  if (mutex_unlock(allow_mount_cleanup_mutex) != MUTEX_SUCCESS) {
+    perror("Failed to unlock child mutex");
+    child_status = POUCH_MUTEX_ERROR_CODE;
+    goto child_error;
+  }
+
+  // Unmount the old root mount point -- we're already chdir'd to the new
+  // root!
+  if (umount(old_root_relative_path) < 0) {
+    printf(stderr, "Pouch: failed to umount old root mount dir at %s!\n",
+           old_root_relative_path);
+    child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+    goto child_error;
+  }
+  if (unlink(old_root_relative_path) < 0) {
+    printf(stderr, "Pouch: failed to unlink old root mount dir at %s!\n",
+           old_root_mount_point);
+    child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
+    goto child_error;
+  }
+
+  printf(stderr, "Entering container\n");
+  if (mutex_unlock(container_started_mutex) != MUTEX_SUCCESS) {
+    perror("Failed to unlock container started mutex");
+    child_status = POUCH_MUTEX_ERROR_CODE;
+    goto child_error;
+  }
+  child_status = exec(container_exec_path, start_container_argv);
+  // child image is replaced with sh, so this line should never be reached
+  // unless error.
+  exit(child_status);
+
+// unlock anyway in case of failure.
+child_error:
+  if (mutex_unlock(container_started_mutex) != MUTEX_SUCCESS)
+    perror("Failed to unlock parent mutex");
+  if (mutex_unlock(allow_mount_cleanup_mutex) != MUTEX_SUCCESS)
+    perror("Failed to unlock parent mutex");
+  if (tty_fd) {
+    detach_tty(tty_fd);
+    close(tty_fd);
+  }  // TODO(Aviv): Remove cconf! container should be dead! clean up!
+  if (*old_root_mount_point) {
+    unlink(old_root_mount_point);
+  }
+  exit(child_status);
+}
+
+static void pouch_container_start_parent(
+    const int pid, const int tty_to_use, const char* const container_name,
+    const char* const image_name, const char* const image_path,
+    const char* const image_mount_point,
+    mutex_t* const start_running_child_mutex,
+    mutex_t* const allow_mount_cleanup_mutex, const char* const cg_cname) {
+  bool child_allowed_to_start = false;
+  pouch_status parent_status = SUCCESS_CODE;
+  char cg_procs_path[MAX_PATH_LENGTH] = {0};
+  strcpy(cg_procs_path, cg_cname);
+  strcat(cg_procs_path, "/cgroup.procs");
+  int cgroup_procs_fd = open(cg_procs_path, O_RDWR);
+  char cur_pid_buf[10];
+  itoa(cur_pid_buf, pid);
+  if (write(cgroup_procs_fd, cur_pid_buf, sizeof(cur_pid_buf)) < 0) {
+    close(cgroup_procs_fd);
+    goto parent_end;
+  }
+  if (close(cgroup_procs_fd) < 0) {
+    printf(stderr, "Failed to close cgroup_procs_fd\n");
+    goto parent_end;
+  }
+  // Setup mounts
+  if (pouch_container_mount(image_mount_point, image_path) != SUCCESS_CODE) {
+    printf(stderr, "Pouch: failed to execute mounts for %s!\n", container_name);
+    goto parent_end;
+  }
+
+  // Setup configuration for the new container
+  container_config conf;
+  conf.tty_num = tty_to_use;
+  strcpy(conf.container_name, container_name);
+  strcpy(conf.image_name, image_name);
+  conf.pid = pid;
+  if ((parent_status = pouch_cconf_write(&conf)) != SUCCESS_CODE) {
+    perror("Failed to write to cconf");
+    goto parent_end;
+  }
+  // let the child process run
+  if (mutex_unlock(start_running_child_mutex) != MUTEX_SUCCESS) {
+    perror("Failed to unlock parent mutex");
+    parent_status = POUCH_MUTEX_ERROR_CODE;
+    goto parent_end;
+  }
+  child_allowed_to_start = true;
+  // and wait until the child process allows mount cleanup
+  if (mutex_wait(allow_mount_cleanup_mutex) != MUTEX_SUCCESS) {
+    perror("Failed to lock child mutex");
+    parent_status = POUCH_MUTEX_ERROR_CODE;
+    goto parent_end;
+  }
+  // cleanup mounts outside the container is now allowed.
+  if (pouch_container_umount(image_mount_point) != SUCCESS_CODE) {
+    printf(stderr, "Pouch: failed to execute umounts for %s!\n",
+           container_name);
+    parent_status = MOUNT_CLEANUP_FAILED_ERROR_CODE;
+    goto parent_end;
+  }
+  // Wait for child to finish -- container exit.
+  parent_status = wait(0);
+
+parent_end:
+  if (!child_allowed_to_start) {
+    mutex_unlock(start_running_child_mutex);
+  }
+
+  exit(parent_status);
+}
+
 /**
  * Entrypoint for the pouch start command.
  * Starts a container with the given name and image.
@@ -494,11 +677,9 @@ pouch_status pouch_container_start(const char* container_name,
                                    const char* const image_name) {
   int tty_fd = -1;
   int pid = -1;
-  int pid2 = -1;
   int tty_to_use = -1;
   char cg_cname[MAX_PATH_LENGTH] = {0};
   char image_mount_point[MAX_PATH_LENGTH] = {0};
-  char old_root_mount_point[MAX_PATH_LENGTH] = {0};
   char image_path[MAX_PATH_LENGTH] = {0};
   int daemonize = 1;
   mutex_t start_running_child_mutex = {0}, global_pouch_mutex = {0},
@@ -539,6 +720,7 @@ pouch_status pouch_container_start(const char* container_name,
 
   printf(stdout, "Pouch: %s starting\n", container_name);
 
+  // Move the current process to "/cgroup/<cname>" cgroup.
   // Prepare cgroup name for container
   if ((parent_status = prepare_cgroup_cname(container_name, cg_cname)) !=
       SUCCESS_CODE) {
@@ -590,7 +772,7 @@ pouch_status pouch_container_start(const char* container_name,
 
   // if daemonize=1, daemonize the container process (so it won't be realted to
   // the sh process)
-  if (!daemonize || (daemonize && (pid2 = fork()) == 0)) {
+  if (!daemonize || (daemonize && (fork() == 0))) {
     // Set up pid namespace before fork
     if (unshare(PID_NS) != 0) {
       printf(stderr, "Cannot create pid namespace\n");
@@ -605,176 +787,15 @@ pouch_status pouch_container_start(const char* container_name,
     }
 
     if (pid == 0) {  // child
-      pouch_status child_status;
-      // wait till the parent process finishes and releases the lock
-      if (mutex_wait(&start_running_child_mutex) != MUTEX_SUCCESS) {
-        printf(stdout, "Pouch: failed to wait on parent mutex\n");
-        child_status = POUCH_MUTEX_ERROR_CODE;
-        goto child_error;
-      }
+      pouch_container_start_child(
+          &start_running_child_mutex, &allow_mount_cleanup_mutex,
+          &container_started_mutex, tty_fd, image_mount_point);
 
-      // attach stderr stdin stdout
-      if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
-        printf(stderr, "attach failed - error in connecting to tty: %d\n",
-               tty_fd);
-        goto child_error;
-      }
-
-      if (close(tty_fd) < 0) {
-        perror("Failed to close tty_fd");
-        child_status = TTY_CLOSE_ERROR_CODE;
-        tty_fd = -1;
-        goto child_error;
-      }
-
-      tty_fd = -1;
-
-      // Child process - setting up namespaces for the container
-      // Set up mount namespace.
-      if (unshare(MOUNT_NS) < 0) {
-        printf(stdout, "Cannot create mount namespace\n");
-        child_status = UNSAHRE_MNT_NS_FAILED_ERROR_CODE;
-        goto child_error;
-      }
-
-      if (prepare_old_root_mount_path(image_mount_point, old_root_mount_point) <
-          0) {
-        printf(stderr, "Pouch: failed to prepare old root mount dir at %s!\n",
-               image_mount_point);
-        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
-        goto child_error;
-      }
-
-      if (mkdir(old_root_mount_point) < 0) {
-        printf(stderr, "Pouch: failed to create  old root mount dir at %s!\n",
-               old_root_mount_point);
-        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
-        goto child_error;
-      }
-
-      if (pivot_root(image_mount_point, old_root_mount_point) < 0) {
-        printf(stderr, "Pouch: failed to pivot root to %s!\n",
-               image_mount_point);
-        child_status = FAILED_TO_PIVOT_ROOT;
-        goto child_error;
-      }
-
-      if (chdir("/") < 0) {
-        printf(stderr, "Pouch: failed to change directory to %s!\n",
-               image_mount_point);
-        child_status = IMAGE_MOUNT_FAILED_ERROR_CODE;
-        goto child_error;
-      }
-
-      // now, parent can clean up mounts outside the container.
-      if (mutex_unlock(&allow_mount_cleanup_mutex) != MUTEX_SUCCESS) {
-        perror("Failed to unlock child mutex");
-        child_status = POUCH_MUTEX_ERROR_CODE;
-        goto child_error;
-      }
-
-      // Unmount the old root mount point -- we're already chdir'd to the new
-      // root!
-      if (umount(old_root_relative_path) < 0) {
-        printf(stderr, "Pouch: failed to umount old root mount dir at %s!\n",
-               old_root_relative_path);
-        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
-        goto child_error;
-      }
-      if (unlink(old_root_relative_path) < 0) {
-        printf(stderr, "Pouch: failed to unlink old root mount dir at %s!\n",
-               old_root_mount_point);
-        child_status = FAILED_TO_CREATE_OLD_ROOT_DIR;
-        goto child_error;
-      }
-
-      printf(stderr, "Entering container\n");
-      if (mutex_unlock(&container_started_mutex) != MUTEX_SUCCESS) {
-        perror("Failed to unlock container started mutex");
-        parent_status = POUCH_MUTEX_ERROR_CODE;
-        goto child_error;
-      }
-      child_status = exec(container_exec_path, start_container_argv);
-      // child image is replaced with sh, so this line should never be reached
-      // unless error.
-      exit(child_status);
-
-    // unlock anyway in case of failure.
-    child_error:
-      if (mutex_unlock(&container_started_mutex) != MUTEX_SUCCESS)
-        perror("Failed to unlock parent mutex");
-      if (mutex_unlock(&allow_mount_cleanup_mutex) != MUTEX_SUCCESS)
-        perror("Failed to unlock parent mutex");
-      if (tty_fd) {
-        detach_tty(tty_fd);
-        close(tty_fd);
-      }  // TODO: Remove cconf! container should be dead! clean up!
-      if (*old_root_mount_point) {
-        unlink(old_root_mount_point);
-      }
-      exit(child_status);
     } else {  // parent
-      bool child_allowed_to_start = false;
-      // Move the current process to "/cgroup/<cname>" cgroup.
-      strcat(cg_cname, "/cgroup.procs");
-      int cgroup_procs_fd = open(cg_cname, O_RDWR);
-      char cur_pid_buf[10];
-      itoa(cur_pid_buf, pid);
-      if (write(cgroup_procs_fd, cur_pid_buf, sizeof(cur_pid_buf)) < 0) {
-        close(cgroup_procs_fd);
-        goto parent_end;
-      }
-      if (close(cgroup_procs_fd) < 0) {
-        printf(stderr, "Failed to close cgroup_procs_fd\n");
-        goto parent_end;
-      }
-      // Setup mounts
-      if (pouch_container_mount(image_mount_point, image_path) !=
-          SUCCESS_CODE) {
-        printf(stderr, "Pouch: failed to execute mounts for %s!\n",
-               container_name);
-        goto parent_end;
-      }
-
-      // Setup configuration for the new container
-      container_config conf;
-      conf.tty_num = tty_to_use;
-      strcpy(conf.container_name, container_name);
-      strcpy(conf.image_name, image_name);
-      conf.pid = pid;
-      if ((parent_status = pouch_cconf_write(&conf)) != SUCCESS_CODE) {
-        perror("Failed to write to cconf");
-        goto parent_end;
-      }
-      // let the child process run
-      if (mutex_unlock(&start_running_child_mutex) != MUTEX_SUCCESS) {
-        perror("Failed to unlock parent mutex");
-        parent_status = POUCH_MUTEX_ERROR_CODE;
-        goto parent_end;
-      }
-      child_allowed_to_start = true;
-      // and wait until the child process allows mount cleanup
-      if (mutex_wait(&allow_mount_cleanup_mutex) != MUTEX_SUCCESS) {
-        perror("Failed to lock child mutex");
-        parent_status = POUCH_MUTEX_ERROR_CODE;
-        goto parent_end;
-      }
-      // cleanup mounts outside the container is now allowed.
-      if (pouch_container_umount(image_mount_point) != SUCCESS_CODE) {
-        printf(stderr, "Pouch: failed to execute umounts for %s!\n",
-               container_name);
-        parent_status = MOUNT_CLEANUP_FAILED_ERROR_CODE;
-        goto parent_end;
-      }
-      // Wait for child to finish -- container exit.
-      parent_status = wait(0);
-
-    parent_end:
-      if (!child_allowed_to_start) {
-        mutex_unlock(&start_running_child_mutex);
-      }
-
-      return parent_status;
+      pouch_container_start_parent(pid, tty_to_use, container_name, image_name,
+                                   image_path, image_mount_point,
+                                   &start_running_child_mutex,
+                                   &allow_mount_cleanup_mutex, cg_cname);
     }
   }
 
@@ -880,6 +901,7 @@ pouch_status pouch_container_stop(const char* const container_name) {
   if ((tty_fd = pouch_open_tty(conf.tty_num, O_RDWR)) < 0) {
     printf(stderr, "cannot open tty: tty%d\n", conf.tty_num);
     ret = TTY_OPEN_ERROR_CODE;
+    goto end;
   }
 
   if (is_connected_tty(tty_fd)) {

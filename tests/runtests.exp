@@ -692,14 +692,14 @@ proc pouch_disconnect_outside_container_test {argv} {
     send "pouch disconnect c6\n"
     log_file -noappend [lindex $argv 0]
     expect {
-       "Error: Invalid command disconnect for outside container."
+       "Error: command disconnect not allowed in outside container."
     }
     assert_on_exit_status 1
 
     send "pouch disconnect\n"
     log_file -noappend [lindex $argv 0]
     expect {
-       "Error: Invalid command disconnect for outside container."
+       "Error: command disconnect not allowed in outside container."
     }
     assert_on_exit_status 1
 }
@@ -725,7 +725,7 @@ proc pouch_info_container_test {argv} {
     sleep 2
     send "pouch info c6\n"
     log_file -noappend [lindex $argv 0]
-    expect "There is no container: c6 in a started stage"
+    expect "Pouch: c6 container not found"
 }
 
 
