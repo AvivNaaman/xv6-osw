@@ -178,7 +178,7 @@ int mount(struct vfs_inode *mountpoint, struct device *target_dev,
     mntput(parent);
     return -1;
   }
-  
+
   release(&myproc()->nsproxy->mount_ns->lock);
 
   if (!newmount->isbind && newmount->sb->ops->start != NULL) {

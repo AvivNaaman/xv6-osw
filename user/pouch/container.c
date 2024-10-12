@@ -490,8 +490,7 @@ static pouch_status pouch_container_start_child(
     mutex_t* const start_running_child_mutex,
     mutex_t* const allow_mount_cleanup_mutex,
     mutex_t* const container_started_mutex, int tty_fd,
-    const char* const image_mount_point,
-    const char* const container_name) {
+    const char* const image_mount_point, const char* const container_name) {
   pouch_status child_status = SUCCESS_CODE;
   int tty_attached = -1;
   char old_root_mount_point[MAX_PATH_LENGTH] = {0};
@@ -502,10 +501,12 @@ static pouch_status pouch_container_start_child(
     goto child_error;
   }
 
-  // Check if config file exists -- if not, parent init failed and we should exit.
+  // Check if config file exists -- if not, parent init failed and we should
+  // exit.
   struct container_config to_remove = {0};
   if (pouch_cconf_read(container_name, &to_remove) != SUCCESS_CODE) {
-    printf(stderr, "Container %s initialization failed, child exiting\n", container_name);
+    printf(stderr, "Container %s initialization failed, child exiting\n",
+           container_name);
     child_status = ERROR_CODE;
     goto child_error;
   }
@@ -568,7 +569,6 @@ static pouch_status pouch_container_start_child(
     goto child_error;
   }
 
-
   // attach stderr stdin stdout
   if ((child_status = attach_tty(tty_fd)) != SUCCESS_CODE) {
     printf(stderr, "attach failed - error in connecting to tty: %d\n", tty_fd);
@@ -607,8 +607,7 @@ child_error:
     if (pouch_cconf_unlink(&to_remove) != SUCCESS_CODE) {
       perror("Failed to remove container config");
     }
-  }
-  else {
+  } else {
     perror("Failed to remove container config");
   }
   exit(child_status);
@@ -677,7 +676,7 @@ static void pouch_container_start_parent(
   parent_status = wait(0);
 
 parent_end:
-// needs to fold config?
+  // needs to fold config?
   if (conf.container_name[0]) {
     if (pouch_cconf_unlink(&conf) != SUCCESS_CODE) {
       perror("Failed to remove container config");

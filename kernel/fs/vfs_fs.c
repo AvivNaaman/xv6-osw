@@ -75,16 +75,16 @@ static struct vfs_inode *vfs_namex(char *path, int nameiparent, char *name,
     }
 
     ip->i_op->iunlockput(ip);
-  
+
     if ((!vfs_namencmp(name, "..", 3)) && curmount != 0 &&
-        (curmount != getrootmount()) &&  
-        (ip == curmount->sb->root_ip) &&
+        (curmount != getrootmount()) && (ip == curmount->sb->root_ip) &&
         curmount->mountpoint != 0 &&
         curmount->mountpoint->i_op->dirlookup != NULL) {
       // valid ".." path component lookup
       struct mount *nextmount = mntdup(curmount->parent);
-      next->i_op->iput(next); 
-      next = curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0);
+      next->i_op->iput(next);
+      next =
+          curmount->mountpoint->i_op->dirlookup(curmount->mountpoint, "..", 0);
       mntput(curmount);
       curmount = nextmount;
     } else {
