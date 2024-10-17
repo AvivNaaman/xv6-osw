@@ -1,8 +1,9 @@
+// Pouch containers and ttys configuration management utility functions.
+
 #include "configs.h"
 
 #include "container.h"
 #include "fcntl.h"
-#include "lib/user.h"
 #include "param.h"
 #include "util.h"
 
@@ -45,6 +46,10 @@ static int pouch_open_ttyc(const int tty_num, const int mode) {
 
 static void pouch_get_container_conf_name(const char* const container_name,
                                           char dest[MAX_PATH_LENGTH]) {
+  if (strlen(container_name) == 0) {
+    perror("Invalid container name.");
+    return;
+  }
   strcpy(dest, POUCH_CONFIGS_DIR);
   strcat(dest, container_name);
 }
@@ -64,7 +69,7 @@ static int pouch_open_container_file(const char* const container_name,
   return fd;
 }
 
-int pouch_cconf_unlink(const struct container_config* const conf) {
+int pouch_cconf_unlink(const container_config* const conf) {
   char container_file[CNTNAMESIZE + sizeof(POUCH_CONFIGS_DIR)];
   pouch_get_container_conf_name(conf->container_name, container_file);
   return unlink(container_file);

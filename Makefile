@@ -52,11 +52,11 @@ UPROGS_TESTS=\
 	tests/xv6/_ioctltests\
 
 
-TEST_ASSETS=
+TEST_ASSETS=tests/pouchfiles/Pouchfile
 
 # Add test pouchfiles to the list of test assets, if the TEST_POUCHFILES env is set to 1
 ifeq ($(TEST_POUCHFILES), 1)
-	TEST_ASSETS += $(wildcard tests/pouchfiles/*)
+	TEST_ASSETS = $(wildcard tests/pouchfiles/*)
 endif
 
 INTERNAL_DEV=\

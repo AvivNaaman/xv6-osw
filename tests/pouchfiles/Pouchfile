@@ -1,0 +1,5 @@
+IMPORT a
+RUN /ls
+RUN /ls .build
+COPY all_images
+RUN echo hi > all_images

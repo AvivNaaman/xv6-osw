@@ -925,8 +925,8 @@ proc test_pouch_build_valid_args {argv} {
 }
 
 proc test_pouch_build_file_parsing {argv} {
-    # iterate over Valid1.Pouchfile, Valid2.Pouchfile, build and assert_on_exit_status
-    set valid_pouchfiles [list Valid1.Pouchfile Valid2.Pouchfile]
+    # iterate over Valid1.Pouchfile, Pouchfile, build and assert_on_exit_status
+    set valid_pouchfiles [list Valid1.Pouchfile Pouchfile]
     foreach elem $valid_pouchfiles {
         send "pouch build --file $elem\n"
         assert_on_exit_status
