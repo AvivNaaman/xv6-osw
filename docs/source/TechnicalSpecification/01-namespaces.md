@@ -1,4 +1,1 @@
-Namespaces
-==========
-
-TBD
+# Namespaces
