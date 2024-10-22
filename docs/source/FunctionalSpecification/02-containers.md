@@ -1,4 +1,4 @@
-# Containers: Pouch - the command line utility for container management in xv6
+# Containers - Pouch
 ## Introduction
 The purpose of the `pouch` command line utility is to create containers, to apply cgroup limitations, to get into the running container and perform operations inside of it (this operation is also called an “attachment”), to exit the attached container, to get information about the running container and, finally, to destroy it.  
 
