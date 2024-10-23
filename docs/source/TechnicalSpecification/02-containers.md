@@ -35,7 +35,7 @@ IMAGE: a
 
 Additionally, `/pconf/tty.c[0-2]` files specify a container identification string of the container that is tied to the corresponding tty device. If no container is tied to the tty device, the file is empty. Hence, listing the `/pconf` directory after the above command results in the following:
 ```sh
-$ ls /pconf/
+$ ls /pconf
 .              1 44 96
 ..             1 1 1024
 tty.c0         2 45 2
@@ -53,11 +53,34 @@ and the contents of the `/pconf/tty.c1` and `/pconf/tty.c2` files are empty.
 ## Cgroup usage
 Processes running inside xv6 containers are organized by the pouch utility in a flat cgroup hierarchy.  Pouch mounts cgroup fs on the `/cgroup` mountpoint, creates a directory `/cgroup/name` for a container identified by the name identification string and takes advantage of the cgroups mechanism control means to allocate resources for the processes running inside the container. The directory is removed from the croup hierarchy when the container is destroyed. Pouch utility is limiting the container hierarchy to be flat i.e nesting is not supported. The layout of `/cgroup` is depicted on below in continuation of the previous example (ca):
 ```sh
-$ ls /cgroup/
-### TODO: Complete!
-$ ls /cgroup/ca/
-### TODO: Complete!
+$ ls /cgroup
+.                                                                5 512
+cgroup.procs                                                     4 9
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
+ca                                                               5 448
+$ ls /cgroup/ca
+.                                                                5 448
+..                                                               5 512
+cgroup.procs                                                     4 2
+cgroup.controllers                                               4 6
+cgroup.subtree_control                                           4 3
+cgroup.events                                                    4 13
+cgroup.freeze                                                    4 0
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
+memory.current                                                   4 25
+cpu.stat                                                         4 0
+memory.stat                                                      4 0
+io.stat                                                          4 0
+cpu.weight                                                       4 0
+cpu.max                                                          4 0
 ```
+
+The `pouch info` command provides additional information, that is queried from the cgroup of the container specified -- for example, the `cpu.max` and `cpu.stat` categories the the `cgroups` section of the `pouch info` command output are taken from the cgroup filesystem of the container (under `/cgroup/<name>`).
+Additionally, the `pouch cgroup` command allows setting a resource limit for a container, by writing to the cgroup filesystem of the container -- for example, to limit the CPU usage of a container, the user can run `pouch cgroup cpu.max 50 <name>` to limit the container to 50% of the CPU, the command actually writes to the `/cgroup/<name>/cpu.max` file the value `50`, as specified by the cgroups' interface (the cgroup filesystem).
 
 ## Pouch images
 Images in xv6 are stored in the `/images/` directory. An xv6 pouch image is a native FS image that contains the root filesystem of the container -- like `internal_fs_a[a-c]`. Pouch looks up available images by listing the files in the `/images/` directory, and currently, the way of "importing" an image to pouch is by copying it to the images directory. The name of an image -- is the name of the file that contains the image. 
@@ -311,7 +334,3 @@ Is done by the `pouch [dis]conect [name]` commands. These command simple look up
 
 ## Pouch info & list
 Those commands read the configuration files under the `/pconf/` directory to list the available containers and examine their properties as set in the configuration files (as mentioned above). 
-
-## Pouch cgroups interface
-The `pouch info` command provides additional information, that is queried from the cgroup of the container specified -- for example, the `cpu.max` and `cpu.stat` categories the the `cgroups` section of the `pouch info` command output are taken from the cgroup filesystem of the container (under `/cgroup/<name>`).
-Additionally, the `pouch cgroup` command allows setting a resource limit for a container, by writing to the cgroup filesystem of the container -- for example, to limit the CPU usage of a container, the user can run `pouch cgroup cpu.max 50 <name>` to limit the container to 50% of the CPU, the command actually writes to the `/cgroup/<name>/cpu.max` file the value `50`, as specified by the cgroups' interface (the cgroup filesystem).

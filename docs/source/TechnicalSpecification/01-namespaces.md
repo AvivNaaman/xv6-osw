@@ -57,7 +57,7 @@ To complete the picture changes required in fork, kill and wait functions that  
 ### fork
 fork 
 Changes required in fork are related to the implementation of process ID mapping. xv6 PID namespaces implement the support of up to 4 nested namespaces. struct pid_entry pids[4] field in a per-process state describes the mapping. Let’s reveal how nesting is implemented based on the following example:
-![](../images/pic16.png)
+![](../images/pid-ns.png)
 
 As one can observe, process IDs in the third namespace start from PID=1. However, for the namespace at the second level it is known as a PID=4, while in the parent PID namespace it holds PID= 11. Pic. 16 describes how the array pids[4] of struct pid_entry is holding the numbers. 
 

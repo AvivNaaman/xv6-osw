@@ -11,9 +11,9 @@ $ mount /cgroup -t cgroup
 ```
 
 Prior to dismounting the cgroup file system it can be considered a best practice to change the cwd to somewhere outside. E.g:
-```
+```sh
 $ cd /
-$umount /cgroups
+$ umount /cgroups
 ```
 
 ### cgroup files
@@ -70,7 +70,7 @@ Its important to state that in the above example, the child cgroup will succeed 
 
 As can be seen in cgroup core and subsystem chapter, there are certain subsystem sub groups that are created inside non-root cgroups.
 
-![cgroups-hierarchy](cgroups-hirearchy.png)
+![cgroups-hierarchy](../images/cgroups-hirearchy.png)
 
 ## cgroup usage
 The easiest way to understand cgroups is through some practical use examples as described below. 
@@ -94,33 +94,56 @@ $ ls
 
 The output should be:
 ```sh
-### TODO: Complete!
+.                                                                5 448
+cgroup.procs                                                     4 6
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
 ```
+
 ### Attaching a shell to newly created cgroup
 ```sh
-# create an additional shell process
+# create an additional shell process, that will be attached to the new cgroup.
 $ sh
 $ cd cgroup
-# observe processes attached to the root group: init (PID=1), sh (PID=2), new sh (PID=7)
-# Note: PID=10 is the ‘cat’ that is still attached to the cgroup as a sh(PID=2) child. 
+# observe processes attached to the root group: `init` (PID=1), `sh` (PID=2), new `sh` (PID=7)
+# Note: PID=10 is the `cat` that is still attached to the cgroup as a `sh`(PID=2) child. 
 $ cat cgroup.procs
-### TODO: Complete!
-# create a nested group under the root
+1
+2
+8
+10
+# create a nested group `group1` under the root
 $ mkdir group1
 $ ls group1
-### TODO: Complete!
-# observe that there is no process attached to the group1 (empty cgroup.procs)
+.                                                                5 448
+..                                                               5 512
+cgroup.procs                                                     4 0
+cgroup.controllers                                               4 6
+cgroup.subtree_control                                           4 0
+cgroup.events                                                    4 13
+cgroup.freeze                                                    4 0
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
+memory.current                                                   4 21
+cpu.stat                                                         4 0
+memory.stat                                                      4 0
+io.stat                                                          4 0
+# observe that there is no process attached to the `group1` (empty cgroup.procs)
 $ cd group1
 $ cat cgroup.procs 
-# attach new sh process (PID=7) to the group1
-$ ctrl_grp 7 cgroup.procs 
-# observe that the new shell was attached
-$ cat cgroup.procs 
-### TODO: Complete!
+# attach new `sh` process (PID=7) to the `group1`
+$ /ctrl_grp 7 cgroup.procs 
+# observe that the new shell was attached + the `cat` process
+$ cat cgroup.procs
+7
+19
 # observe that the new shell (PID=7) was detached from the root cgroup (/cgroup)
 $ cd ..
 $ cat cgroup.procs
-### TODO: Complete!
+1
+2
 ```
 
 ### Working with CPU controller
@@ -131,46 +154,91 @@ $ cat cgroup.subtree_control # empty output.
 ```
 As a follow up on the previous example, a cpu controller will be enabled for the group1 using the following command:
 ```sh
-$ ctrl_grp +cpu cgroup.subtree_control
+$ /ctrl_grp +cpu cgroup.subtree_control
 ```
 Now, the group1 has a cpu controller enabled, so cgroup.subtree_control contains 'cpu', and new cpu control files are added to the cgroup:
 ```sh
 $ cat cgroup.subtree_control
 cpu
 $ ls
-
+.                                                                5 448
+..                                                               5 512
+cgroup.procs                                                     4 0
+cgroup.controllers                                               4 6
+cgroup.subtree_control                                           4 3
+cgroup.events                                                    4 13
+cgroup.freeze                                                    4 0
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
+memory.current                                                   4 21
+cpu.stat                                                         4 0
+memory.stat                                                      4 0
+io.stat                                                          4 0
+cpu.weight                                                       4 0
+cpu.max                                                          4 0
 ```
 
 Now, restrict the CPU usage of the group1 to 50% of the CPU time.
-```sh
-# observe what are the default values in cpu.max
-$ cat cpu.max
-### TODO: Complete!
-# all processes attached to the group1 to use CPU for 10000 out of every 20000 μs
-$ ctrl_grp 10000,20000 cpu.max
-# make sure the setting was commanded
-$ cat cpu.max
-### TODO: Complete!
-```
 
+Observe what are the default values in cpu.max:
+```sh
+$ cat cpu.max
+max - 4294967295
+period - 100000
+```
+Configure all processes attached to the group1 to use CPU for 10000 out of every 20000 μs, which is 1/2 of the CPU time:
+```sh
+$ /ctrl_grp 10000,20000 cpu.max
+$ cat cpu.max
+max - 10000
+period - 20000
+```
+Finally, disable the CPU controller for the group1:
+```sh
+$ /ctrl_grp -cpu cgroup.subtree_control
+$ cat cgroup.subtree_control # empty output.
+```
 ### Working with memory controller
 To enable memory controller inside any non-root cgroup run the following command:
 ```sh
-$ ctrl_grp +mem cgroup.subtree_control
+$ /ctrl_grp +mem cgroup.subtree_control
 ```
 After memory controller enabled, list current directory to see new cgroup memory controller members:
 ```sh
 $ cat cgroup.subtree_control
 mem
-$ ls 
-### TODO: Complete!
+$ ls
+.                                                                5 448
+..                                                               5 512
+cgroup.procs                                                     4 0
+cgroup.controllers                                               4 6
+cgroup.subtree_control                                           4 0
+cgroup.events                                                    4 13
+cgroup.freeze                                                    4 0
+cgroup.max.descendants                                           4 2
+cgroup.max.depth                                                 4 2
+cgroup.stat                                                      4 60
+memory.current                                                   4 21
+cpu.stat                                                         4 0
+memory.stat                                                      4 0
+io.stat                                                          4 0
+memory.max                                                       4 0
+memory.min                                                       4 0
 ```
 
 To configure memory.max or memory.min use the following commands:
 ```sh
+$ cat memory.min
+0
+$ cat memory.max
+2147483648
 $ ctrl_grp 1024 memory.min
 $ ctrl_grp 131072 memory.max
-### TODO: Complete!
+$ cat memory.min
+1024
+$ cat memory.max
+131072
 ```
 Note that configuring min value will succeed only if the ancestor cgroups has enough space.
 Also, setting the min value will affect  (if it succeeds) the ancestors by “locking” memory for the specific child.

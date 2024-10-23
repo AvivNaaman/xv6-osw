@@ -2,6 +2,7 @@
 
 set -e
 
+python -m venv /tmp/virtdocs
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 source /tmp/virtdocs/bin/activate
 python -m pip install --upgrade pip sphinx-autobuild
