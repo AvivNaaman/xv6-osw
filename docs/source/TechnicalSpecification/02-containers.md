@@ -2,7 +2,7 @@
 ## TTY Devices
 Upon xv6 boot 3 tty devices are created with mknod syscall during init. They're all created under the `/dev/` directory (named `ttyX`, with X set to 0, 1 or 2), and all devices are controlled by the same device driver and have a common major device number. 
 The major number is the offset into the kernel’s device driver table, which tells the kernel what kind of device driver to use. The minor number tells the kernel special characteristics of the device to be accessed. 
-We can recognize each device by its major number (which identifies the driver and devices class) and by minor number which identifies the device itself. In other words every device driver is identified by ordered pair major:minor.
+We can recognize each device by its major number (which identifies the driver and devices class) and by minor number which identifies the device itself. In other words every device driver is identified by ordered pair `major:minor`.
 
 As it was mentioned already 3 tty devices were added. Tty devices are initialized in main.c by `ttyinit()`. 
 
@@ -51,7 +51,7 @@ ca$
 and the contents of the `/pconf/tty.c1` and `/pconf/tty.c2` files are empty.
 
 ## Cgroup usage
-Processes running inside xv6 containers are organized by the pouch utility in a flat cgroup hierarchy.  Pouch mounts cgroup fs on the `/cgroup` mountpoint, creates a directory `/cgroup/name` for a container identified by the name identification string and takes advantage of the cgroups mechanism control means to allocate resources for the processes running inside the container. The directory is removed from the croup hierarchy when the container is destroyed. Pouch utility is limiting the container hierarchy to be flat i.e nesting is not supported. The layout of `/cgroup` is depicted on below in continuation of the previous example (ca):
+Processes running inside xv6 containers are organized by the pouch utility in a flat cgroup hierarchy.  Pouch mounts cgroup fs on the `/cgroup` mountpoint, creates a directory `/cgroup/name` for a container identified by the name identification string and takes advantage of the cgroups mechanism control means to allocate resources for the processes running inside the container. The directory is removed from the croup hierarchy when the container is destroyed. Pouch utility is limiting the container hierarchy to be flat i.e nesting is not supported. The layout of `/cgroup` is depicted on below in continuation of the previous example (`ca` cgroup for the `ca` container):
 ```sh
 $ ls /cgroup
 .                                                                5 512
@@ -60,6 +60,9 @@ cgroup.max.descendants                                           4 2
 cgroup.max.depth                                                 4 2
 cgroup.stat                                                      4 60
 ca                                                               5 448
+```
+And the contents of the `/cgroup/ca` directory are:
+```sh
 $ ls /cgroup/ca
 .                                                                5 448
 ..                                                               5 512
@@ -84,17 +87,27 @@ Additionally, the `pouch cgroup` command allows setting a resource limit for a c
 
 ## Pouch images
 Images in xv6 are stored in the `/images/` directory. An xv6 pouch image is a native FS image that contains the root filesystem of the container -- like `internal_fs_a[a-c]`. Pouch looks up available images by listing the files in the `/images/` directory, and currently, the way of "importing" an image to pouch is by copying it to the images directory. The name of an image -- is the name of the file that contains the image. 
-For example, importing an image manually can be performed by copying the `internal_fs_a` file to the `/images` directory:
+For example, importing an image manually can be performed by copying the `internal_fs_a` file to the `/images/` directory:
 ```sh
 $ pouch images
 No images available.
+$ ls /images/
+.                                                                1 40 48
+..                                                               1 1 1024
 $ cp internal_fs_a images/img_a
 $ pouch images
 Pouch images available:
-img_a         
+img_a
+$ ls /images/
+.                                                                1 40 48
+..                                                               1 1 1024
+a                                                                2 42 16384
 $ rm /images/img_a
 $ pouch images
 No images available.
+$ ls /images/
+.                                                                1 40 48
+..                                                               1 1 1024
 ```
 
 ## Container startup process
