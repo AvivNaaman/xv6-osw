@@ -239,27 +239,15 @@ static const struct container_mounts_def pouch_start_mounts[] = {
 ```
 
 Running `pouch start ca a` will result in the following mounts **outside** the container, created by the parent before the child is allowed to continue:
-```
-/mnt/ca/  -- bound to the loop device of the image file (1)
-        dev/ -- bound to /dev/ (2)
-        pconf/ -- bound to /pconf/ (3)
-        .mutex/ -- bound to /.mutex/ (4)
-/dev/
-/.mutex/
-/images/
-    a
-```
-(1), (2) and (3) are the mounts order
 
-Once `unshare(MOUNT_NS)` is called by the child, the entire mounts structure is copied to the child's mount namespace. The child performs `pivot_root` to `/mnt/ca`, so from the child's perspective, the filesystem looks like this:
-```
-/ -- bound to /images/a loop device outside (1)
-  dev/ -- bound to /dev/ outside (2)
-  pconf/ -- bound to /pconf/ outside (3)
-  .mutex/ -- bound to /.mutex/ outside (4)
-```
+![](../images/pouch-mounts.png)
+* The red-bordered rectangle will be the new container's root filesystem. A loop device is used to mount the image file `/images/a` to that directory.
+* The green-bordered rectangles are the bind mounts that are performed outside of the container, but will be available inside the container. The diagram shows the targets of those bind mounts. The files under the bind mounts _targets_ are not shown in the diagram, but they are the same as the files under the bind mounts _sources_ (an `ls` command on the source directories will show the same files as an `ls` command on the target directories).
 
-Then, the parent umounts the mounts it created outside of the container, but thanks to the mount namespace creation, the mounts are still available inside the container. The child umounts the old root filesystem, and the container is ready to run!
+Once `unshare(MOUNT_NS)` is called by the child, the entire mounts structure is copied to the child's mount namespace. The child performs `pivot_root` to `/mnt/ca` & `umount(/.old_root)` so from the child's perspective, the filesystem looks like this:
+
+![](../images/pouch-container-mounts.png)
+The colors of the rectangles were preserved from the diagram above. The parent umounts the mounts it created outside of the container, but thanks to the mount namespace creation, the mounts are still available inside the container. The child umounts the old root filesystem, and the container is ready to run!
 As long as the bounded directories are not removed from their filesystems, the container will be able to access them.
 
 ## Container stop process
